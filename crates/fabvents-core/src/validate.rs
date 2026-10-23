@@ -2,10 +2,15 @@
 //! valeur hors domaine donne une erreur (motif non calculé) ou un
 //! avertissement qui dit ce que le moteur en fait.
 
+use crate::geom::Vec2;
 use crate::issue::Issue;
-use crate::project::{Geometry, GridPattern, Layout, Outline, Project, ShapeKind};
+use crate::project::{
+    Curve, Geometry, GridPattern, Influence, Layout, Outline, Project, ShapeKind,
+};
+use crate::raster::Luma;
 
 pub const MAX_POLYGON_SIDES: u32 = 64;
+pub const MAX_PATH_ROWS: u32 = 50;
 
 /// Erreurs et avertissements de saisie.
 pub fn validate(p: &Project) -> Vec<Issue> {
@@ -50,6 +55,46 @@ pub fn validate(p: &Project) -> Vec<Issue> {
                 (g.col_twist, "layout.col_twist"),
             ] {
                 finite(v, f, &mut out);
+            }
+        }
+        Layout::Random(r) => positive(r.spacing, "layout.spacing", &mut out),
+        Layout::Spiral(l) => {
+            positive(l.pitch, "layout.pitch", &mut out);
+            positive(l.spacing, "layout.spacing", &mut out);
+            non_negative(l.start, "layout.start", &mut out);
+            finite(l.offset_x, "layout.offset_x", &mut out);
+            finite(l.offset_y, "layout.offset_y", &mut out);
+        }
+        Layout::Concentric(l) => {
+            positive(l.pitch, "layout.pitch", &mut out);
+            positive(l.spacing, "layout.spacing", &mut out);
+            non_negative(l.start, "layout.start", &mut out);
+            finite(l.phase, "layout.phase", &mut out);
+            finite(l.offset_x, "layout.offset_x", &mut out);
+            finite(l.offset_y, "layout.offset_y", &mut out);
+        }
+        Layout::Fibonacci(l) => {
+            positive(l.spacing, "layout.spacing", &mut out);
+            finite(l.divergence, "layout.divergence", &mut out);
+            finite(l.offset_x, "layout.offset_x", &mut out);
+            finite(l.offset_y, "layout.offset_y", &mut out);
+        }
+        Layout::CrossHatch(l) => {
+            positive(l.line_spacing, "layout.line_spacing", &mut out);
+            positive(l.step, "layout.step", &mut out);
+            finite(l.angle, "layout.angle", &mut out);
+            finite(l.cross, "layout.cross", &mut out);
+            finite(l.offset_x, "layout.offset_x", &mut out);
+            finite(l.offset_y, "layout.offset_y", &mut out);
+        }
+        Layout::Path(l) => {
+            positive(l.spacing, "layout.spacing", &mut out);
+            non_negative(l.row_gap, "layout.row_gap", &mut out);
+            if !(1..=MAX_PATH_ROWS).contains(&l.rows) {
+                out.push(Issue::error("value.out_of_range", "layout.rows").value(l.rows as f64));
+            }
+            for (i, c) in l.paths.iter().enumerate() {
+                curve(c, &format!("layout.paths.{i}"), &mut out);
             }
         }
     }
@@ -103,27 +148,117 @@ pub fn validate(p: &Project) -> Vec<Issue> {
     // Contrôleurs.
     for c in &p.controllers {
         let base = format!("controllers.{}", c.id);
-        let pts = match c.geometry {
-            Geometry::Point { at } => vec![at],
-            Geometry::Line { a, b } => vec![a, b],
-        };
-        if pts.iter().any(|q| !(q.x.is_finite() && q.y.is_finite())) {
-            out.push(Issue::error(
-                "value.must_be_finite",
-                format!("{base}.geometry"),
-            ));
+        let g = format!("{base}.geometry");
+        let image = matches!(c.geometry, Geometry::Image { .. });
+        match &c.geometry {
+            Geometry::Point { at } => point(*at, &g, &mut out),
+            Geometry::Line { a, b } => {
+                point(*a, &g, &mut out);
+                point(*b, &g, &mut out);
+            }
+            Geometry::Curve(cv) => curve(cv, &g, &mut out),
+            Geometry::Circle { center, radius } => {
+                point(*center, &g, &mut out);
+                positive(*radius, &format!("{g}.radius"), &mut out);
+            }
+            Geometry::Ellipse {
+                center,
+                rx,
+                ry,
+                angle,
+            } => {
+                point(*center, &g, &mut out);
+                positive(*rx, &format!("{g}.rx"), &mut out);
+                positive(*ry, &format!("{g}.ry"), &mut out);
+                finite(*angle, &format!("{g}.angle"), &mut out);
+            }
+            Geometry::Polygon {
+                center,
+                radius,
+                sides,
+                angle,
+            } => {
+                point(*center, &g, &mut out);
+                positive(*radius, &format!("{g}.radius"), &mut out);
+                finite(*angle, &format!("{g}.angle"), &mut out);
+                if !(3..=MAX_POLYGON_SIDES).contains(sides) {
+                    out.push(
+                        Issue::error("shape.sides_out_of_range", format!("{g}.sides"))
+                            .value(*sides as f64),
+                    );
+                }
+            }
+            Geometry::Image {
+                at,
+                width,
+                height,
+                raster,
+            } => {
+                point(*at, &g, &mut out);
+                positive(*width, &format!("{g}.width"), &mut out);
+                positive(*height, &format!("{g}.height"), &mut out);
+                if Luma::decode(raster).is_none() {
+                    out.push(Issue::error("controller.image_invalid", g.clone()));
+                }
+            }
         }
         if let Some(i) = &c.size {
-            positive(i.reach, &format!("{base}.size.reach"), &mut out);
+            influence(i, &format!("{base}.size"), image, &mut out);
             non_negative(i.target, &format!("{base}.size.target"), &mut out);
+            if let Some(cull) = &i.cull {
+                if !(cull.amount.is_finite() && (0.0..=1.0).contains(&cull.amount)) {
+                    out.push(
+                        Issue::error("value.out_of_range", format!("{base}.size.cull"))
+                            .value(cull.amount),
+                    );
+                }
+            }
+        }
+        if let Some(i) = &c.spacing {
+            influence(i, &format!("{base}.spacing"), image, &mut out);
+            positive(i.target, &format!("{base}.spacing.target"), &mut out);
         }
         if let Some(i) = &c.angle {
-            positive(i.reach, &format!("{base}.angle.reach"), &mut out);
+            influence(i, &format!("{base}.angle"), image, &mut out);
             finite(i.target, &format!("{base}.angle.target"), &mut out);
+            non_negative(i.step, &format!("{base}.angle.step"), &mut out);
         }
     }
 
     out
+}
+
+fn influence(i: &Influence, base: &str, image: bool, out: &mut Vec<Issue>) {
+    if !image {
+        positive(i.reach, &format!("{base}.reach"), out);
+    }
+    non_negative(i.contrast, &format!("{base}.contrast"), out);
+}
+
+fn point(p: Vec2, field: &str, out: &mut Vec<Issue>) {
+    if !(p.x.is_finite() && p.y.is_finite()) {
+        out.push(Issue::error("value.must_be_finite", field));
+    }
+}
+
+/// Tracé : au moins 2 nœuds (3 s'il est fermé), congés positifs, un par nœud.
+fn curve(c: &Curve, field: &str, out: &mut Vec<Issue>) {
+    let min = if c.closed { 3 } else { 2 };
+    if c.points.len() < min {
+        out.push(Issue::error("controller.curve_too_short", field).count(c.points.len()));
+    }
+    for &q in &c.points {
+        point(q, field, out);
+    }
+    if !c.fillets.is_empty() && c.fillets.len() != c.points.len() {
+        out.push(Issue::error("controller.fillets_invalid", field));
+    }
+    if c.fillets.iter().any(|r| !(r.is_finite() && *r >= 0.0)) {
+        out.push(Issue::error(
+            "value.must_be_non_negative",
+            format!("{field}.fillets"),
+        ));
+    }
 }
 
 fn positive(v: f64, field: &str, out: &mut Vec<Issue>) {
@@ -166,6 +301,58 @@ mod tests {
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].severity, Severity::Error);
         assert_eq!(issues[0].field.as_deref(), Some("layout.pitch_x"));
+    }
+
+    #[test]
+    fn new_controllers_are_checked() {
+        use crate::project::{Controller, Raster};
+        let mut p = Project::example();
+        p.controllers.push(Controller {
+            spacing: Some(Influence::new(10.0, 0.0)),
+            ..Controller::new(
+                2,
+                Geometry::Curve(Curve {
+                    points: vec![Vec2::ZERO, Vec2::new(1.0, 0.0)],
+                    closed: true,
+                    fillets: vec![1.0],
+                }),
+            )
+        });
+        p.controllers.push(Controller {
+            size: Some(Influence::new(0.0, 4.0)),
+            ..Controller::new(
+                3,
+                Geometry::Image {
+                    at: Vec2::ZERO,
+                    width: 10.0,
+                    height: 10.0,
+                    raster: Raster {
+                        width: 3,
+                        height: 3,
+                        luma: "AAAA".into(),
+                    },
+                },
+            )
+        });
+        let codes: Vec<(&str, String)> = validate(&p)
+            .into_iter()
+            .map(|i| (i.code, i.field.unwrap_or_default()))
+            .collect();
+        assert!(codes.contains(&(
+            "controller.curve_too_short",
+            "controllers.2.geometry".into()
+        )));
+        assert!(codes.contains(&(
+            "controller.fillets_invalid",
+            "controllers.2.geometry".into()
+        )));
+        assert!(codes.contains(&(
+            "value.must_be_positive",
+            "controllers.2.spacing.target".into()
+        )));
+        assert!(codes.contains(&("controller.image_invalid", "controllers.3.geometry".into())));
+        // Une image n'a pas de portée : 0 est accepté.
+        assert!(!codes.iter().any(|(_, f)| f == "controllers.3.size.reach"));
     }
 
     #[test]

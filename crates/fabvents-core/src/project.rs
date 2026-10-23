@@ -4,12 +4,16 @@
 //! Le format est versionné (`format`, `version`). Un champ absent prend sa
 //! valeur par défaut ; un projet d'une version plus récente est refusé plutôt
 //! que lu à moitié.
+//!
+//! Versions : 1 (v0.1, grille, point et ligne, canaux Taille et Angle) ;
+//! 2 (v0.2, six dispositions de plus, courbes, formes, image, options des
+//! contrôleurs, canal Espacement). Un projet de version 1 se lit tel quel.
 
 use crate::geom::Vec2;
 use serde::{Deserialize, Serialize};
 
 pub const FORMAT: &str = "fabvents.project";
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -51,12 +55,8 @@ impl Project {
             controllers: vec![Controller {
                 id: 1,
                 geometry: Geometry::Point { at: c },
-                size: Some(Influence {
-                    reach: 70.0,
-                    target: 7.0,
-                    hard_edge: false,
-                }),
-                angle: None,
+                size: Some(Influence::new(70.0, 7.0)),
+                ..Controller::new(1, Geometry::Point { at: c })
             }],
             plate,
             ..Self::default()
@@ -189,6 +189,27 @@ impl Plate {
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum Layout {
     Grid(Grid),
+    Random(Random),
+    Spiral(Spiral),
+    Concentric(Concentric),
+    Fibonacci(Fibonacci),
+    CrossHatch(CrossHatch),
+    Path(PathLayout),
+}
+
+impl Layout {
+    /// Valeur de base du canal Espacement, pour les dispositions qui le
+    /// suivent (aléatoire, spirale, concentrique, Fibonacci, chemin).
+    pub fn base_spacing(&self) -> Option<f64> {
+        match self {
+            Layout::Grid(_) | Layout::CrossHatch(_) => None,
+            Layout::Random(l) => Some(l.spacing),
+            Layout::Spiral(l) => Some(l.spacing),
+            Layout::Concentric(l) => Some(l.spacing),
+            Layout::Fibonacci(l) => Some(l.spacing),
+            Layout::Path(l) => Some(l.spacing),
+        }
+    }
 }
 
 impl Default for Layout {
@@ -238,6 +259,193 @@ impl Default for Grid {
             row_twist: 0.0,
             col_twist: 0.0,
         }
+    }
+}
+
+/// Distribution aléatoire sans collision (Poisson-disc), densité suivant le
+/// canal Espacement, reproductible par sa graine.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Random {
+    /// Distance minimale entre deux centres (mm), valeur de base du canal Espacement.
+    pub spacing: f64,
+    pub seed: u64,
+}
+
+impl Default for Random {
+    fn default() -> Self {
+        Self {
+            spacing: 8.0,
+            seed: 1,
+        }
+    }
+}
+
+/// Spirale d'Archimède continue depuis le centre.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Spiral {
+    /// Écart entre deux spires (mm).
+    pub pitch: f64,
+    /// Espacement le long de la spirale (mm), base du canal Espacement.
+    pub spacing: f64,
+    /// Rayon de départ (mm).
+    pub start: f64,
+    pub clockwise: bool,
+    pub offset_x: f64,
+    pub offset_y: f64,
+    /// Formes orientées selon la tangente.
+    pub orient: bool,
+}
+
+impl Default for Spiral {
+    fn default() -> Self {
+        Self {
+            pitch: 8.0,
+            spacing: 8.0,
+            start: 0.0,
+            clockwise: false,
+            offset_x: 0.0,
+            offset_y: 0.0,
+            orient: true,
+        }
+    }
+}
+
+/// Anneaux concentriques.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Concentric {
+    /// Écart entre deux anneaux (mm).
+    pub pitch: f64,
+    /// Espacement le long d'un anneau (mm), base du canal Espacement.
+    pub spacing: f64,
+    /// Rayon du premier anneau (mm) ; 0 place une perforation au centre.
+    pub start: f64,
+    /// Rotation ajoutée à chaque anneau (degrés).
+    pub phase: f64,
+    pub offset_x: f64,
+    pub offset_y: f64,
+    /// Formes orientées selon l'anneau.
+    pub orient: bool,
+}
+
+impl Default for Concentric {
+    fn default() -> Self {
+        Self {
+            pitch: 8.0,
+            spacing: 8.0,
+            start: 0.0,
+            phase: 0.0,
+            offset_x: 0.0,
+            offset_y: 0.0,
+            orient: true,
+        }
+    }
+}
+
+/// Phyllotaxie (spirale de Fibonacci) : chaque point tourne de l'angle de
+/// divergence, son rayon suit l'aire occupée par les précédents.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Fibonacci {
+    /// Espacement moyen entre voisins (mm), base du canal Espacement.
+    pub spacing: f64,
+    /// Angle de divergence (degrés), l'angle d'or par défaut.
+    pub divergence: f64,
+    pub offset_x: f64,
+    pub offset_y: f64,
+    /// Formes orientées vers le centre.
+    pub orient: bool,
+}
+
+pub const GOLDEN_ANGLE_DEG: f64 = 137.507_764_050_037_85;
+
+impl Default for Fibonacci {
+    fn default() -> Self {
+        Self {
+            spacing: 8.0,
+            divergence: GOLDEN_ANGLE_DEG,
+            offset_x: 0.0,
+            offset_y: 0.0,
+            orient: false,
+        }
+    }
+}
+
+/// Hachures croisées : treillis de deux familles de rangées qui se croisent
+/// à `cross` ; une forme au milieu de chaque arête du treillis, orientée selon
+/// sa rangée, la matière restant aux croisements.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CrossHatch {
+    /// Pas entre deux rangées de la première famille, mesuré le long de la seconde (mm).
+    pub line_spacing: f64,
+    /// Pas le long d'une rangée de la première famille (mm).
+    pub step: f64,
+    /// Direction de la première famille (degrés).
+    pub angle: f64,
+    /// Angle entre les deux familles (degrés).
+    pub cross: f64,
+    pub offset_x: f64,
+    pub offset_y: f64,
+}
+
+impl Default for CrossHatch {
+    fn default() -> Self {
+        Self {
+            line_spacing: 10.0,
+            step: 10.0,
+            angle: 45.0,
+            cross: 90.0,
+            offset_x: 0.0,
+            offset_y: 0.0,
+        }
+    }
+}
+
+/// Répétition le long de tracés dessinés sur la plaque.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PathLayout {
+    pub paths: Vec<Curve>,
+    /// Espacement le long du tracé (mm), base du canal Espacement.
+    pub spacing: f64,
+    /// Nombre de rangées parallèles, centrées sur le tracé.
+    pub rows: u32,
+    /// Écart entre rangées (mm).
+    pub row_gap: f64,
+    /// Formes orientées selon le tracé.
+    pub orient: bool,
+}
+
+impl Default for PathLayout {
+    fn default() -> Self {
+        Self {
+            paths: Vec::new(),
+            spacing: 8.0,
+            rows: 1,
+            row_gap: 8.0,
+            orient: true,
+        }
+    }
+}
+
+/// Tracé libre : polyligne ouverte ou fermée, avec un congé optionnel à
+/// chaque nœud (contrôleur Courbe, disposition Chemin).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Curve {
+    pub points: Vec<Vec2>,
+    #[serde(default)]
+    pub closed: bool,
+    /// Rayon de congé à chaque nœud (vide : aucun congé).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fillets: Vec<f64>,
+}
+
+impl Curve {
+    pub fn fillet(&self, i: usize) -> f64 {
+        self.fillets.get(i).copied().unwrap_or(0.0)
     }
 }
 
@@ -315,42 +523,189 @@ impl Default for Fabrication {
 
 /// Un contrôleur : une géométrie posée sur la plaque et, pour chaque canal
 /// où il agit, une influence. Un même contrôleur peut agir sur plusieurs
-/// canaux (« synchronisation »).
+/// canaux (« synchronisation »), avec une portée et une cible propres.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Controller {
     pub id: u32,
     pub geometry: Geometry,
+    /// Ligne ou courbe ouverte : n'agir que d'un côté.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub side: Side,
+    /// Ligne ou courbe ouverte : prolonger les extrémités à l'infini.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub extend: bool,
+    /// Tracé fermé : valeur cible pleine dans tout l'intérieur.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub fill: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<Influence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spacing: Option<Influence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub angle: Option<Influence>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum Geometry {
-    Point { at: Vec2 },
-    Line { a: Vec2, b: Vec2 },
-}
+impl Controller {
+    /// Contrôleur sans influence (à compléter canal par canal).
+    pub fn new(id: u32, geometry: Geometry) -> Self {
+        Self {
+            id,
+            geometry,
+            side: Side::Both,
+            extend: false,
+            fill: false,
+            size: None,
+            spacing: None,
+            angle: None,
+        }
+    }
 
-impl Geometry {
-    pub fn distance(&self, p: Vec2) -> f64 {
-        match *self {
-            Geometry::Point { at } => p.distance(at),
-            Geometry::Line { a, b } => crate::geom::dist_point_segment(p, a, b),
+    pub fn influence(&self, ch: Channel) -> Option<&Influence> {
+        match ch {
+            Channel::Size => self.size.as_ref(),
+            Channel::Spacing => self.spacing.as_ref(),
+            Channel::Angle => self.angle.as_ref(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Geometry {
+    Point {
+        at: Vec2,
+    },
+    Line {
+        a: Vec2,
+        b: Vec2,
+    },
+    Curve(Curve),
+    Circle {
+        center: Vec2,
+        radius: f64,
+    },
+    /// Ellipse de demi-axes `rx`, `ry`, tournée de `angle` degrés.
+    Ellipse {
+        center: Vec2,
+        rx: f64,
+        ry: f64,
+        angle: f64,
+    },
+    /// Polygone régulier inscrit dans le cercle de rayon `radius`, premier
+    /// sommet à `angle` degrés.
+    Polygon {
+        center: Vec2,
+        radius: f64,
+        sides: u32,
+        angle: f64,
+    },
+    /// Image en niveaux de gris posée sur la plaque (coin bas gauche `at`) :
+    /// sa luminance pilote le canal (sombre = valeur cible).
+    Image {
+        at: Vec2,
+        width: f64,
+        height: f64,
+        raster: Raster,
+    },
+}
+
+impl Geometry {
+    /// Tracé fermé (remplissable).
+    pub fn is_closed(&self) -> bool {
+        match self {
+            Geometry::Curve(c) => c.closed,
+            Geometry::Circle { .. } | Geometry::Ellipse { .. } | Geometry::Polygon { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// Ligne ou courbe ouverte (côté unique, extension).
+    pub fn is_open_path(&self) -> bool {
+        matches!(self, Geometry::Line { .. }) || matches!(self, Geometry::Curve(c) if !c.closed)
+    }
+}
+
+/// Image en niveaux de gris : `luma` contient `width × height` octets
+/// (ligne du haut d'abord), encodés en base64.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Raster {
+    pub width: u32,
+    pub height: u32,
+    pub luma: String,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Side {
+    #[default]
+    Both,
+    /// À gauche dans le sens du tracé.
+    Left,
+    Right,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Influence {
-    /// Distance (mm) à laquelle l'influence s'annule.
+    /// Distance (mm) à laquelle l'influence s'annule (sans objet pour une image).
     pub reach: f64,
-    /// Valeur atteinte sur le contrôleur (mm pour la taille, degrés pour l'angle).
+    /// Valeur atteinte sur le contrôleur (mm pour la taille et l'espacement,
+    /// degrés pour l'angle).
     pub target: f64,
     /// Seuil franc : valeur cible pleine dans la portée, aucune au-delà.
     #[serde(default)]
     pub hard_edge: bool,
+    /// Image : les zones claires (au lieu des sombres) atteignent la cible.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub invert: bool,
+    /// Image : contraste (1 = luminance telle quelle).
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub contrast: f64,
+    /// Angle : rotation inversée de l'autre côté du contrôleur.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub symmetric: bool,
+    /// Angle : rotation arrondie à ce pas (degrés), 0 = continu.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub step: f64,
+    /// Taille : disparition aléatoire de perforations dans la portée.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cull: Option<Cull>,
+}
+
+impl Influence {
+    pub fn new(reach: f64, target: f64) -> Self {
+        Self {
+            reach,
+            target,
+            hard_edge: false,
+            invert: false,
+            contrast: 1.0,
+            symmetric: false,
+            step: 0.0,
+            cull: None,
+        }
+    }
+}
+
+/// Disparition aléatoire : probabilité `amount` (0 à 1), répartie selon `mode`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Cull {
+    pub amount: f64,
+    #[serde(default)]
+    pub mode: CullMode,
+    #[serde(default)]
+    pub seed: u64,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CullMode {
+    /// Plus probable près du contrôleur.
+    #[default]
+    Center,
+    /// Plus probable vers la limite de la portée.
+    Edge,
+    /// Même probabilité dans toute la portée.
+    Uniform,
 }
 
 /// Canaux pilotés par les contrôleurs.
@@ -358,16 +713,28 @@ pub struct Influence {
 #[serde(rename_all = "snake_case")]
 pub enum Channel {
     Size,
+    Spacing,
     Angle,
 }
 
-impl Controller {
-    pub fn influence(&self, ch: Channel) -> Option<&Influence> {
-        match ch {
-            Channel::Size => self.size.as_ref(),
-            Channel::Angle => self.angle.as_ref(),
-        }
-    }
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+fn is_zero(v: &f64) -> bool {
+    *v == 0.0
+}
+
+fn is_one(v: &f64) -> bool {
+    *v == 1.0
+}
+
+fn one() -> f64 {
+    1.0
+}
+
+fn is_default<T: Default + PartialEq>(v: &T) -> bool {
+    *v == T::default()
 }
 
 #[cfg(test)]
@@ -406,6 +773,47 @@ mod tests {
             Project::from_json("{"),
             Err(ProjectError::Syntax(_))
         ));
+    }
+
+    #[test]
+    fn version_1_files_are_read() {
+        let v1 = r#"{"format":"fabvents.project","version":1,"name":"","plate":{"outline":"rectangle","width":200.0,"height":150.0,"corner_radius":6.0,"thickness":3.0,"margin":6.0},"layout":{"mode":"grid","pattern":"hexagonal","pitch_x":8.0,"pitch_y":8.0,"angle":0.0,"offset_x":0.0,"offset_y":0.0,"row_twist":0.0,"col_twist":0.0},"shape":{"kind":{"type":"circle"},"size":5.0,"rotation":0.0},"edge":"whole","fabrication":{"min_size":0.5,"min_bridge":1.0},"controllers":[{"id":1,"geometry":{"type":"point","at":{"x":100.0,"y":75.0}},"size":{"reach":70.0,"target":7.0,"hard_edge":false}}]}"#;
+        let p = Project::from_json(v1).unwrap();
+        assert_eq!(p, Project::example());
+        assert_eq!(p.version, VERSION);
+    }
+
+    #[test]
+    fn new_geometries_roundtrip() {
+        let mut p = Project::example();
+        p.layout = Layout::Path(PathLayout {
+            paths: vec![Curve {
+                points: vec![Vec2::new(10.0, 10.0), Vec2::new(90.0, 40.0)],
+                closed: false,
+                fillets: vec![],
+            }],
+            ..PathLayout::default()
+        });
+        let mut c = Controller::new(
+            2,
+            Geometry::Curve(Curve {
+                points: vec![Vec2::ZERO, Vec2::new(10.0, 0.0), Vec2::new(10.0, 10.0)],
+                closed: true,
+                fillets: vec![0.0, 2.0, 0.0],
+            }),
+        );
+        c.fill = true;
+        c.angle = Some(Influence {
+            symmetric: true,
+            step: 15.0,
+            ..Influence::new(20.0, 45.0)
+        });
+        p.controllers.push(c);
+        let json = p.to_json();
+        assert!(json.contains(r#""mode":"path""#));
+        assert!(json.contains(r#""type":"curve""#));
+        assert!(!json.contains("contrast"));
+        assert_eq!(Project::from_json(&json).unwrap(), p);
     }
 
     #[test]

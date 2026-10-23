@@ -16,6 +16,7 @@
 //! ```
 
 pub mod contour;
+pub mod curve;
 pub mod export;
 pub mod field;
 pub mod geom;
@@ -25,6 +26,8 @@ pub mod metrics;
 pub mod pipeline;
 pub mod plate;
 pub mod project;
+pub mod raster;
+pub mod rng;
 pub mod shape;
 pub mod validate;
 

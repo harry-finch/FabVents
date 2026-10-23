@@ -1,16 +1,16 @@
 //! Calcul d'un motif par étages, avec cache :
 //!
 //! ```text
-//! germes   (plaque, disposition)                       ─┐
-//! trous    (germes, forme, contrôleurs, bords, taille mini) ─┤ recalculé seulement
-//! mesures  (trous, nervure mini)                        ─┘ si ses entrées changent
+//! germes   (plaque, disposition, contrôleurs d'espacement)   ─┐
+//! trous    (germes, forme, contrôleurs, bords, taille mini)  ─┤ recalculé seulement
+//! mesures  (trous, nervure mini)                             ─┘ si ses entrées changent
 //! ```
 //!
 //! Déplacer un contrôleur de taille ne relance pas la disposition ; changer
 //! la nervure minimale ne relance que les mesures.
 
 use crate::contour::Contour;
-use crate::field::ChannelField;
+use crate::field::Field;
 use crate::geom::Vec2;
 use crate::issue::{Issue, Severity};
 use crate::layout::{seeds, Seed};
@@ -47,6 +47,8 @@ pub struct Stats {
     pub removed_edge: usize,
     /// Trous retirés car plus petits que la taille minimale.
     pub removed_small: usize,
+    /// Trous retirés par une disparition aléatoire.
+    pub removed_cull: usize,
 }
 
 /// Résultat d'un calcul.
@@ -67,6 +69,8 @@ impl Frame<'_> {
 struct SeedsKey {
     layout: Layout,
     plate: Plate,
+    /// Contrôleurs du canal Espacement (seulement pour les dispositions qui le suivent).
+    spacing: Vec<Controller>,
 }
 
 #[derive(PartialEq)]
@@ -123,12 +127,24 @@ impl Pipeline {
         }
 
         // Étage 1 : germes.
+        let spacing: Vec<Controller> = if p.layout.base_spacing().is_some() {
+            p.controllers
+                .iter()
+                .filter(|c| c.spacing.is_some())
+                .cloned()
+                .collect()
+        } else {
+            Vec::new()
+        };
         let key = SeedsKey {
             layout: p.layout.clone(),
             plate: p.plate.clone(),
+            spacing,
         };
         if self.seeds_key.as_ref() != Some(&key) {
-            match seeds(&p.layout, &p.plate) {
+            let field = Field::new(&key.spacing);
+            let result = seeds(&p.layout, &p.plate, &field.channel(Channel::Spacing));
+            match result {
                 Ok(s) => {
                     self.seeds = s;
                     self.seeds_error = None;
@@ -201,7 +217,9 @@ impl Pipeline {
         }
 
         let m = &self.metrics;
-        if self.holes.is_empty() {
+        if matches!(&p.layout, Layout::Path(l) if l.paths.iter().all(|c| c.points.len() < 2)) {
+            issues.push(Issue::info("layout.no_path"));
+        } else if self.holes.is_empty() {
             issues.push(Issue::info("holes.none"));
         }
         if self.stats.removed_small > 0 {
@@ -239,8 +257,9 @@ impl Pipeline {
 }
 
 fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
-    let size_field = ChannelField::new(&p.controllers, Channel::Size);
-    let angle_field = ChannelField::new(&p.controllers, Channel::Angle);
+    let field = Field::new(&p.controllers);
+    let size_field = field.channel(Channel::Size);
+    let angle_field = field.channel(Channel::Angle);
     let margin = p.plate.margin;
     let mut stats = Stats {
         seeds: seeds.len(),
@@ -255,6 +274,10 @@ fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
         let size = size_field.value(p.shape.size, s.pos);
         if size < p.fabrication.min_size || size <= 0.0 {
             stats.removed_small += 1;
+            continue;
+        }
+        if size_field.culled(s.pos) {
+            stats.removed_cull += 1;
             continue;
         }
         let angle = angle_field.value(p.shape.rotation, s.pos) + s.angle;
@@ -281,7 +304,10 @@ fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::project::{Geometry, Grid, GridPattern, Influence};
+    use crate::project::{
+        Concentric, CrossHatch, Cull, CullMode, Curve, Fibonacci, Geometry, Grid, GridPattern,
+        Influence, PathLayout, Random, Spiral,
+    };
 
     fn square(pitch: f64) -> Project {
         Project {
@@ -336,16 +362,16 @@ mod tests {
     fn small_holes_are_removed_and_reported() {
         let mut p = square(10.0);
         p.controllers.push(Controller {
-            id: 1,
-            geometry: Geometry::Point {
-                at: Vec2::new(50.0, 50.0),
-            },
             size: Some(Influence {
-                reach: 12.0,
-                target: 0.0,
                 hard_edge: true,
+                ..Influence::new(12.0, 0.0)
             }),
-            angle: None,
+            ..Controller::new(
+                1,
+                Geometry::Point {
+                    at: Vec2::new(50.0, 50.0),
+                },
+            )
         });
         let mut pl = Pipeline::new();
         let f = pl.compute(&p);
@@ -374,5 +400,113 @@ mod tests {
         assert!(f.metrics.open_ratio > 20.0 && f.metrics.open_ratio < 60.0);
         assert!(f.metrics.bridge_min.unwrap() > 0.9);
         assert_eq!(f.metrics.overlaps, 0);
+    }
+
+    fn spacing_point() -> Controller {
+        Controller {
+            spacing: Some(Influence::new(30.0, 4.0)),
+            ..Controller::new(
+                9,
+                Geometry::Point {
+                    at: Vec2::new(50.0, 50.0),
+                },
+            )
+        }
+    }
+
+    #[test]
+    fn spacing_controllers_reseed_only_layouts_that_follow_them() {
+        let mut grid = square(10.0);
+        grid.controllers.push(spacing_point());
+        let mut pl = Pipeline::new();
+        pl.compute(&grid);
+        if let Geometry::Point { at } = &mut grid.controllers[0].geometry {
+            at.x += 5.0;
+        }
+        pl.compute(&grid);
+        assert!(!pl.last_runs[0], "la grille ne suit pas l'espacement");
+
+        let mut rnd = grid.clone();
+        rnd.layout = Layout::Random(Random::default());
+        pl.compute(&rnd);
+        if let Geometry::Point { at } = &mut rnd.controllers[0].geometry {
+            at.x += 5.0;
+        }
+        pl.compute(&rnd);
+        assert!(pl.last_runs[0]);
+    }
+
+    #[test]
+    fn every_layout_computes_a_sound_pattern() {
+        let layouts = [
+            Layout::Random(Random::default()),
+            Layout::Spiral(Spiral::default()),
+            Layout::Concentric(Concentric::default()),
+            Layout::Fibonacci(Fibonacci::default()),
+            Layout::CrossHatch(CrossHatch::default()),
+            Layout::Path(PathLayout {
+                paths: vec![Curve {
+                    points: vec![Vec2::new(20.0, 20.0), Vec2::new(80.0, 80.0)],
+                    closed: false,
+                    fillets: vec![],
+                }],
+                ..PathLayout::default()
+            }),
+        ];
+        for l in layouts {
+            let mut p = square(10.0);
+            p.shape.size = 3.0;
+            p.layout = l.clone();
+            p.controllers.push(spacing_point());
+            let mut pl = Pipeline::new();
+            let f = pl.compute(&p);
+            assert!(!f.has_errors(), "{l:?} : {:?}", f.issues);
+            assert!(f.holes.len() > 5, "{l:?}");
+            assert!(f.holes.iter().all(|h| p.plate.sdf(h.center) <= 0.0));
+            // Déterminisme : même projet, même motif.
+            let again: Vec<Vec2> = Pipeline::new()
+                .compute(&p)
+                .holes
+                .iter()
+                .map(|h| h.center)
+                .collect();
+            assert_eq!(again, f.holes.iter().map(|h| h.center).collect::<Vec<_>>());
+        }
+    }
+
+    #[test]
+    fn empty_path_layout_says_so() {
+        let mut p = square(10.0);
+        p.layout = Layout::Path(PathLayout::default());
+        let f = Pipeline::new().compute(&p).issues;
+        assert!(f.iter().any(|i| i.code == "layout.no_path"));
+    }
+
+    #[test]
+    fn cull_removes_a_share_of_holes_reproducibly() {
+        let mut p = square(2.0);
+        p.shape.size = 1.0;
+        p.controllers.push(Controller {
+            size: Some(Influence {
+                cull: Some(Cull {
+                    amount: 0.4,
+                    mode: CullMode::Uniform,
+                    seed: 11,
+                }),
+                ..Influence::new(1000.0, 1.0)
+            }),
+            ..Controller::new(
+                1,
+                Geometry::Point {
+                    at: Vec2::new(50.0, 50.0),
+                },
+            )
+        });
+        let mut pl = Pipeline::new();
+        let f = pl.compute(&p);
+        let (kept, culled) = (f.holes.len(), f.stats.removed_cull);
+        let share = culled as f64 / (kept + culled) as f64;
+        assert!((share - 0.4).abs() < 0.03, "{share}");
+        assert_eq!(Pipeline::new().compute(&p).stats.removed_cull, culled);
     }
 }
