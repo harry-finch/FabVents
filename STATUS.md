@@ -1,6 +1,6 @@
 # État du projet
 
-**Jalon** : **v0.3 — contours et découpe**, livrée pour essai (23/10/2026). v0.1 et v0.2 validées par l'utilisateur. Prochain jalon : v0.4 (export STEP), voir [ROADMAP.md](ROADMAP.md).
+**Jalon** : **v0.3 — contours et découpe**, validée par l'utilisateur (23/10/2026), comme v0.1 et v0.2. Prochain jalon : v0.4 (export STEP), voir [ROADMAP.md](ROADMAP.md).
 
 | Élément | État |
 | --- | --- |
@@ -18,7 +18,6 @@
 
 ## Points ouverts
 
-- Couleur d'identité et logo : provisoires (vert chartreuse `#B5D93A`), à valider.
 - Fibonacci : l'espacement ne varie qu'avec la distance au centre.
 - Motifs où tout se chevauche : la mesure des paires et l'union dominent le calcul.
 - Contour libre : la distance au bord parcourt toutes les arêtes (lent au-delà de quelques milliers de sommets).
@@ -26,4 +25,4 @@
 
 ## Prochaine action
 
-Tester la v0.3 (liste dans le message de livraison), puis lancer la v0.4.
+Lancer la v0.4 (export STEP).

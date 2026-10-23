@@ -65,3 +65,7 @@ v0.2 testée et validée par l'utilisateur.
 - Aire d'un disque découpé à 2 825 mm² au lieu de 2 827 : facettisation de la découpe passée de 0,01 à 0,002 mm.
 - Libellés « Par le centre » / « Trous entiers » et sélecteur de zone qui débordaient du panneau : libellés courts (« Centre », « Entiers »), titre de zone au-dessus du sélecteur.
 - Trous de fixation d'un gabarit hors de la plaque après import d'un contour : nouvel avertissement `features.outside`.
+
+## 2026-10-23 — v0.3 validée, identité retenue
+
+v0.3 testée et validée par l'utilisateur. Logo et couleur d'identité (vert chartreuse `#B5D93A`) retenus. Dépôt publié sur GitHub (public, GPL-3.0-or-later).

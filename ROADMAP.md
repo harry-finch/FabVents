@@ -49,7 +49,7 @@ Critères d'acceptation :
 
 Acceptation : chaque disposition et chaque option a un test moteur (déterminisme compris : même graine, même résultat).
 
-## v0.3 — Contours et découpe (jalon 3) · *à tester* (livrée le 23/10/2026)
+## v0.3 — Contours et découpe (jalon 3) · *validée*
 
 - Contours : ellipse, contour importé (SVG, DXF) ou dessiné.
 - **Découpe au contour** (booléens 2D, `i_overlay`) ; fusion des trous qui se chevauchent ; taux d'ouverture exact.
