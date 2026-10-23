@@ -23,6 +23,8 @@ const en: Shape<typeof fr> = {
     dropHint: 'Drop a .fabvents.json project or an SVG exported by FabVents on the window to open it.',
     untitled: 'Untitled project',
     name: 'Project name',
+    project: 'Project',
+    nameHint: 'Project name, used for the exported file names.',
     opened: 'Opened “{name}”',
     openFailed: '“{name}”: {reason}',
     saved: 'Project saved: {name}',

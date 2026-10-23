@@ -20,6 +20,8 @@ const fr = {
     dropHint: 'Glissez un projet .fabvents.json ou un SVG exporté par FabVents sur la fenêtre pour l’ouvrir.',
     untitled: 'Projet sans nom',
     name: 'Nom du projet',
+    project: 'Projet',
+    nameHint: 'Nom du projet, repris dans les noms des fichiers exportés.',
     opened: '« {name} » ouvert',
     openFailed: '« {name} » : {reason}',
     saved: 'Projet enregistré : {name}',

@@ -1,7 +1,7 @@
 <script lang="ts">
   // Barre d'application : identité, projet (nom et menu Fichier), unités,
   // langue, thème, aide, et l'action principale : exporter.
-  import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, Monitor, Moon, Save, Sparkles, Sun, FileImage, FileCode, FileBraces } from '@lucide/svelte';
+  import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, Monitor, Moon, Save, Sparkles, Sun, FileImage, FileCode, FileBraces, FileText } from '@lucide/svelte';
   import Popover from './Popover.svelte';
   import { theme, THEMES } from '../lib/theme.svelte';
   import { store } from '../lib/store.svelte';
@@ -36,7 +36,10 @@
         <p class="note">{t('file.dropHint')}</p>
       {/snippet}
     </Popover>
-    <input
+    <label class="pbox" use:tip={t('file.nameHint')}>
+      <FileText size={14} />
+      <span class="plabel">{t('file.project')}</span>
+      <input
       class="pname"
       type="text"
       placeholder={t('file.untitled')}
@@ -47,7 +50,8 @@
         store.edit((p) => (p.name = v));
       }}
       onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
-    />
+      />
+    </label>
   </div>
 
   <div class="right">
@@ -176,26 +180,57 @@
     color: var(--text-primary);
   }
 
-  .pname {
-    width: 240px;
-    height: 26px;
-    padding: 0 var(--s2);
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius);
-    color: var(--text-primary);
-    font-weight: 500;
+  /* Encart du projet : même dessin que l'encart de la machine dans FabSpeed. */
+  .project :global(.pop) {
+    width: auto;
+  }
+
+  .pbox {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    width: 340px;
     min-width: 0;
+    height: var(--control-h);
+    padding: 0 var(--s2);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    cursor: text;
   }
 
-  .pname:hover {
-    border-color: var(--border);
+  .pbox:hover {
+    border-color: var(--border-strong);
   }
 
-  .pname:focus {
-    outline: none;
+  .pbox:focus-within {
     border-color: var(--accent);
-    background: var(--bg-control);
+  }
+
+  .plabel {
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+  }
+
+  .pname {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: var(--text-primary);
+    font-weight: 600;
+    text-overflow: ellipsis;
+  }
+
+  @media (max-width: 1100px) {
+    .pbox {
+      width: 240px;
+    }
   }
 
   .pname::placeholder {
