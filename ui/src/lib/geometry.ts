@@ -82,7 +82,7 @@ export function flattenCurve(c: Curve, segs = 10): Vec2[] {
 }
 
 export function isClosed(g: CtrlGeometry): boolean {
-  return g.type === 'circle' || g.type === 'ellipse' || g.type === 'polygon' || (g.type === 'curve' && g.closed);
+  return g.type === 'circle' || g.type === 'ellipse' || g.type === 'polygon' || g.type === 'rect' || (g.type === 'curve' && g.closed);
 }
 
 export function isOpenPath(g: CtrlGeometry): boolean {
@@ -125,7 +125,30 @@ export function outline(g: CtrlGeometry): { pts: Vec2[]; closed: boolean } | nul
         pts: [g.at, { x: g.at.x + g.width, y: g.at.y }, { x: g.at.x + g.width, y: g.at.y + g.height }, { x: g.at.x, y: g.at.y + g.height }],
         closed: true,
       };
+    case 'rect':
+      return { pts: roundedRect(g.center, g.width, g.height, g.corner), closed: true };
   }
+}
+
+/** Rectangle centré à coins arrondis, facettisé. */
+export function roundedRect(c: Vec2, w: number, h: number, corner: number, segs = 8): Vec2[] {
+  const r = Math.max(0, Math.min(corner, w / 2, h / 2));
+  const hx = w / 2 - r;
+  const hy = h / 2 - r;
+  const out: Vec2[] = [];
+  const corners: [number, number, number][] = [
+    [hx, -hy, -90],
+    [hx, hy, 0],
+    [-hx, hy, 90],
+    [-hx, -hy, 180],
+  ];
+  for (const [x, y, a0] of corners) {
+    for (let k = 0; k <= (r > 0 ? segs : 0); k++) {
+      const a = (a0 + (90 * k) / segs) * DEG;
+      out.push({ x: c.x + x + r * Math.cos(a), y: c.y + y + r * Math.sin(a) });
+    }
+  }
+  return out;
 }
 
 /** Distance d'un point au contrôleur (à son tracé). */
@@ -170,6 +193,11 @@ export function handles(g: CtrlGeometry): { part: string; pos: Vec2 }[] {
       ];
     case 'image':
       return [{ part: 'corner', pos: { x: g.at.x + g.width, y: g.at.y + g.height } }];
+    case 'rect':
+      return [
+        { part: 'center', pos: g.center },
+        { part: 'size', pos: { x: g.center.x + g.width / 2, y: g.center.y + g.height / 2 } },
+      ];
   }
 }
 
@@ -185,6 +213,7 @@ export function translate(g: CtrlGeometry, d: Vec2): CtrlGeometry {
     case 'circle':
     case 'ellipse':
     case 'polygon':
+    case 'rect':
       return { ...g, center: m(g.center) };
     case 'image':
       return { ...g, at: m(g.at) };
@@ -217,6 +246,8 @@ export function dragPart(g: CtrlGeometry, part: string, d: Vec2, mp: Vec2): Ctrl
       const k = Math.max(0.05, Math.max((mp.x - g.at.x) / g.width, (mp.y - g.at.y) / g.height));
       return { ...g, width: rnd(g.width * k, 10), height: rnd(g.height * k, 10) };
     }
+    case 'rect':
+      return { ...g, width: Math.max(0.2, rnd(2 * Math.abs(mp.x - g.center.x), 10)), height: Math.max(0.2, rnd(2 * Math.abs(mp.y - g.center.y), 10)) };
     default:
       return g;
   }
@@ -234,6 +265,7 @@ export function reachAnchor(g: CtrlGeometry, reach: number): Vec2 | null {
     case 'polygon':
       return add(g.center, mul(dir(g.angle), g.radius + reach));
     case 'image':
+    case 'rect':
       return null;
     default: {
       const pts = g.type === 'line' ? [g.a, g.b] : g.points;
@@ -332,6 +364,8 @@ export function scaleGeometry(g: CtrlGeometry, kx: number, ky: number, k: number
       return { ...g, center: sp(g.center), rx: sl(g.rx), ry: sl(g.ry) };
     case 'polygon':
       return { ...g, center: sp(g.center), radius: sl(g.radius) };
+    case 'rect':
+      return { ...g, center: sp(g.center), width: sl(g.width), height: sl(g.height), corner: sl(g.corner) };
     case 'image': {
       // L'image suit la plaque par son centre et garde ses proportions.
       const c = sp({ x: g.at.x + g.width / 2, y: g.at.y + g.height / 2 });

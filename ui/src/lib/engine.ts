@@ -74,6 +74,16 @@ export class EngineClient {
     return this.#call({ kind: 'export', format, project });
   }
 
+  /** Contour de plaque depuis un SVG ou un DXF (JSON `ImportedOutline`). */
+  importOutline(text: string): Promise<string> {
+    return this.#call({ kind: 'import', text });
+  }
+
+  /** Projet d'un gabarit de grille de ventilateur. */
+  fanTemplate(size: number): Promise<string> {
+    return this.#call({ kind: 'template', size });
+  }
+
   /** Projet normalisé depuis un fichier `.fabvents.json` ou un SVG FabVents. */
   read(text: string): Promise<string> {
     return this.#call({ kind: 'read', text });

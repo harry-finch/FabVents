@@ -14,13 +14,13 @@
   import { untrack } from 'svelte';
   import { Copy, Trash2, Circle, Hexagon, Spline, Plus, Minus, Lock, Unlock } from '@lucide/svelte';
   import ContextMenu, { type MenuEntry } from './ContextMenu.svelte';
-  import { store, type Item, type ItemKey } from '../lib/store.svelte';
+  import { featureGeometry, sameKey as same, store, type Item, type ItemKey } from '../lib/store.svelte';
   import { theme } from '../lib/theme.svelte';
   import { t } from '../lib/i18n.svelte';
   import { fmtLen, numTrim } from '../lib/format';
   import { add, angleOf, dist, distSeg, dragPart, handles, insideImage, outline, reachAnchor, round2, sub, distanceTo } from '../lib/geometry';
   import { rasterCanvas } from '../lib/image';
-  import type { CtrlGeometry, FrameData, Plate, Tab, Vec2 } from '../lib/types';
+  import type { CtrlGeometry, Feature, FrameData, Tab, Vec2 } from '../lib/types';
 
   type Hit = { key: ItemKey; part: string };
   type Drag =
@@ -111,7 +111,7 @@
 
   interface Scene {
     frame: FrameData | null;
-    plate: Plate;
+    features: Feature[];
     items: Item[];
     tab: Tab;
     selection: ItemKey | null;
@@ -132,7 +132,7 @@
     readColors();
     const scene: Scene = {
       frame: store.frame,
-      plate: $state.snapshot(store.p.plate),
+      features: $state.snapshot(store.p.features ?? []) as Feature[],
       items: $state.snapshot(store.items) as Item[],
       tab: store.tab,
       selection: $state.snapshot(store.selection),
@@ -152,9 +152,6 @@
     pending = scene;
     if (!raf) raf = requestAnimationFrame(paint);
   });
-
-  const same = (a: ItemKey | null, b: ItemKey | null) =>
-    !!a && !!b && a.kind === b.kind && (a.kind === 'ctrl' ? a.id === (b as { id: number }).id : a.index === (b as { index: number }).index);
 
   function paint() {
     raf = 0;
@@ -203,12 +200,37 @@
       ctx.globalAlpha = 1;
     }
 
-    // Zone de marge (pointillés).
-    marginPath(ctx, scene.plate, X, Y, s);
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = colors['plate-margin'];
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // Zone perforable : plaque moins la marge, dans la zone perforée (pointillés).
+    if (f) {
+      ctx.beginPath();
+      const zp = f.zonePoints;
+      const zo = f.zoneOffsets;
+      for (let k = 0; k + 1 < zo.length; k++) {
+        if (zo[k + 1] - zo[k] < 2) continue;
+        ctx.moveTo(X(zp[2 * zo[k]]), Y(zp[2 * zo[k] + 1]));
+        for (let i = zo[k] + 1; i < zo[k + 1]; i++) ctx.lineTo(X(zp[2 * i]), Y(zp[2 * i + 1]));
+        ctx.closePath();
+      }
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = colors['plate-margin'];
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Zones réservées (hors onglet Plaque, où elles sont éditables).
+    if (scene.tab !== 'plate') {
+      for (const ft of scene.features) {
+        if (ft.cut) continue;
+        const o = outline(featureGeometry(ft.shape));
+        if (!o) continue;
+        tracePath(ctx, o.pts, true);
+        ctx.setLineDash([2, 3]);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = colors['plate-margin'];
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
 
     // Perforations : le vide laisse voir le fond.
     if (f) {
@@ -232,7 +254,8 @@
         ctx.closePath();
       }
       ctx.fillStyle = colors['hole-fill'];
-      ctx.fill();
+      // Pair-impair : les îlots de matière entourés par une découpe restent pleins.
+      ctx.fill('evenodd');
     }
 
     for (const it of scene.items) drawItem(ctx, it, scene);
@@ -264,21 +287,6 @@
     ctx.strokeStyle = colors['canvas-ghost'];
     ctx.lineWidth = 2;
     ctx.stroke();
-  }
-
-  function marginPath(ctx: CanvasRenderingContext2D, pl: Plate, X: (x: number) => number, Y: (y: number) => number, s: number) {
-    ctx.beginPath();
-    const m = pl.margin;
-    if (pl.outline === 'circle') {
-      const r = pl.width / 2 - m;
-      if (r > 0) ctx.arc(X(pl.width / 2), Y(pl.width / 2), r * s, 0, Math.PI * 2);
-      return;
-    }
-    const w = pl.width - 2 * m;
-    const h = pl.height - 2 * m;
-    if (w <= 0 || h <= 0) return;
-    const r = Math.max(0, Math.min(pl.corner_radius, pl.width / 2, pl.height / 2) - m);
-    ctx.roundRect(X(m), Y(pl.height - m), w * s, h * s, Math.min(r, w / 2, h / 2) * s);
   }
 
   function tracePath(ctx: CanvasRenderingContext2D, pts: Vec2[], closed: boolean) {
@@ -335,7 +343,20 @@
       }
     }
 
-    // Tracé du contrôleur (ou du chemin).
+    // Garde d'un élément de plaque.
+    if (it.key.kind === 'feature' && o) {
+      const id = it.key.id;
+      const ft = scene.features.find((x) => x.id === id);
+      if (ft && ft.clearance > 0) {
+        tracePath(ctx, o.pts, true);
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 2 * ft.clearance * s;
+        ctx.strokeStyle = sel ? colors['ctrl-active-fill'] : colors['ctrl-reach-fill'];
+        ctx.stroke();
+      }
+    }
+
+    // Tracé du contrôleur (ou du chemin, de l'élément de plaque).
     const main = sel ? colors['ctrl-active'] : colors['ctrl'];
     if (o) {
       tracePath(ctx, o.pts, o.closed);
@@ -559,8 +580,8 @@
       draft = draft ? [...draft, p] : [p];
       return;
     }
-    if (!store.channel && (store.tool === 'point' || store.tool === 'line')) {
-      store.toast(t('canvas.pathOnlyCurves'));
+    if (!store.channel && (store.tool === 'line' || (store.tool === 'point' && store.tab !== 'plate'))) {
+      store.toast(t(store.tab === 'plate' ? 'features.closedOnly' : 'canvas.pathOnlyCurves'));
       store.tool = 'curve';
       return;
     }

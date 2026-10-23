@@ -1,7 +1,7 @@
 <script lang="ts">
   // Panneau droit : l'élément sélectionné (contrôleur ou tracé de chemin),
   // ou le canal affiché ; puis les mesures du motif et les messages du moteur.
-  import { Copy, Trash2, TriangleAlert, CircleX, Info, Dices, Equal, Circle, Hexagon, Ellipse } from '@lucide/svelte';
+  import { Copy, Trash2, TriangleAlert, CircleX, Info, Dices, Equal, Circle, Hexagon, Ellipse, Frame, Plus, Square } from '@lucide/svelte';
   import Section from './Section.svelte';
   import NumField from './NumField.svelte';
   import Field from './Field.svelte';
@@ -13,7 +13,7 @@
   import { fmtArea, fmtLen, num, pct } from '../lib/format';
   import { issueText } from '../lib/issues';
   import { isClosed, isOpenPath } from '../lib/geometry';
-  import { baseSpacing, type Channel, type Controller, type CtrlGeometry, type CullMode, type Influence, type Side } from '../lib/types';
+  import { baseSpacing, type Channel, type Controller, type CtrlGeometry, type CullMode, type Feature, type Influence, type Side } from '../lib/types';
 
   const key = $derived(store.selection);
   const geom = $derived(store.selectedGeometry);
@@ -23,7 +23,24 @@
   const issues = $derived(report?.issues ?? []);
   const thin = $derived(m != null && m.bridge_min != null && m.bridge_min < store.p.fabrication.min_bridge);
   const channels = $derived(store.tabs.filter((x): x is Channel => x !== 'path'));
-  const editKey = $derived(key ? (key.kind === 'ctrl' ? `c${key.id}` : `p${key.index}`) : '');
+  const editKey = $derived(key ? (key.kind === 'path' ? `p${key.index}` : `${key.kind[0]}${key.id}`) : '');
+  const feat = $derived(store.selectedFeature);
+
+  function editFeature(fn: (f: Feature) => void, field: string) {
+    const id = feat?.id;
+    if (id == null) return;
+    store.edit((p) => {
+      const f = (p.features ?? []).find((x) => x.id === id);
+      if (f) fn(f);
+    }, `f${id}.${field}`);
+  }
+
+  /** Nouveau trou de fixation ou zone rectangulaire au centre de la plaque. */
+  function addAtCenter(kind: 'hole' | 'rect') {
+    const c = { x: store.plateExtent().x / 2, y: store.plateExtent().y / 2 };
+    if (kind === 'hole') store.addFeature({ shape: { type: 'circle', center: c, diameter: 4 }, cut: true, clearance: 2 });
+    else store.addFeature({ shape: { type: 'rectangle', center: c, width: 30, height: 20, corner: 2 }, cut: false, clearance: 1 });
+  }
 
   /** Modifie la géométrie de l'élément sélectionné. */
   function setGeom(fn: (g: CtrlGeometry) => CtrlGeometry, field: string) {
@@ -75,14 +92,20 @@
 <aside class="panel" aria-label={t('panel.inspector')}>
   {#if key && geom}
     {@const g = geom}
-    <Section id="item" title={key.kind === 'path' ? t('ctrl.pathTitle') : t('ctrl.title')}>
+    <Section id="item" title={key.kind === 'path' ? t('ctrl.pathTitle') : key.kind === 'feature' ? t('features.title') : t('ctrl.title')}>
       {#snippet actions()}
         <button class="btn quiet icon" type="button" aria-label={t('ctrl.duplicate')} use:tip={t('ctrl.duplicate')} onclick={() => store.duplicateSelected()}><Copy size={14} /></button>
         <button class="btn quiet icon" type="button" aria-label={t('ctrl.delete')} use:tip={`${t('ctrl.delete')} (⌫)`} onclick={() => store.removeSelected()}><Trash2 size={14} /></button>
       {/snippet}
       <div class="kind">
         <GeometryIcon type={g.type} />
-        <span>{key.kind === 'path' ? t('ctrl.pathName', { n: key.index + 1 }) : `${t(`ctrl.types.${g.type}`)} ${key.id}`}</span>
+        <span
+          >{key.kind === 'path'
+            ? t('ctrl.pathName', { n: key.index + 1 })
+            : key.kind === 'feature'
+              ? `${feat?.cut ? t('features.hole') : t('features.reserved')} ${key.id}`
+              : `${t(`ctrl.types.${g.type}`)} ${key.id}`}</span
+        >
       </div>
 
       {#if g.type === 'point'}
@@ -140,6 +163,16 @@
             </div>
           </Field>
         {/if}
+      {:else if g.type === 'circle' && key.kind === 'feature'}
+        <NumField label={t('ctrl.cx')} value={g.center.x} onchange={(v) => setGeom((x) => (x.type === 'circle' ? { ...x, center: { ...x.center, x: v } } : x), 'cx')} />
+        <NumField label={t('ctrl.cy')} value={g.center.y} onchange={(v) => setGeom((x) => (x.type === 'circle' ? { ...x, center: { ...x.center, y: v } } : x), 'cy')} />
+        <NumField label={t('plate.diameter')} field={`features.${key.id}.diameter`} min={0} value={g.radius * 2} onchange={(v) => setGeom((x) => (x.type === 'circle' ? { ...x, radius: v / 2 } : x), 'd')} />
+      {:else if g.type === 'rect'}
+        <NumField label={t('ctrl.cx')} value={g.center.x} onchange={(v) => setGeom((x) => (x.type === 'rect' ? { ...x, center: { ...x.center, x: v } } : x), 'cx')} />
+        <NumField label={t('ctrl.cy')} value={g.center.y} onchange={(v) => setGeom((x) => (x.type === 'rect' ? { ...x, center: { ...x.center, y: v } } : x), 'cy')} />
+        <NumField label={t('plate.width')} min={0} value={g.width} onchange={(v) => setGeom((x) => (x.type === 'rect' ? { ...x, width: v } : x), 'w')} />
+        <NumField label={t('plate.height')} min={0} value={g.height} onchange={(v) => setGeom((x) => (x.type === 'rect' ? { ...x, height: v } : x), 'h')} />
+        <NumField label={t('plate.corner')} min={0} value={g.corner} onchange={(v) => setGeom((x) => (x.type === 'rect' ? { ...x, corner: v } : x), 'r')} />
       {:else if g.type === 'circle'}
         <NumField label={t('ctrl.cx')} value={g.center.x} onchange={(v) => setGeom((x) => (x.type === 'circle' ? { ...x, center: { ...x.center, x: v } } : x), 'cx')} />
         <NumField label={t('ctrl.cy')} value={g.center.y} onchange={(v) => setGeom((x) => (x.type === 'circle' ? { ...x, center: { ...x.center, y: v } } : x), 'cy')} />
@@ -174,6 +207,23 @@
         <p class="muted">{t('ctrl.imageInfo', { w: g.raster.width, h: g.raster.height })}</p>
       {/if}
 
+      {#if feat}
+        <label class="check" use:tip={t('features.cutHint')}>
+          <input
+            type="checkbox"
+            checked={feat.cut}
+            onchange={(e) => {
+              const on = (e.currentTarget as HTMLInputElement).checked;
+              editFeature((f) => (f.cut = on), 'cut');
+            }}
+          />
+          {t('features.cut')}
+        </label>
+        <NumField label={t('features.clearance')} hint={t('features.clearanceHint')} field={`features.${feat.id}.clearance`} min={0} value={feat.clearance} onchange={(v) => editFeature((f) => (f.clearance = v), 'clearance')} />
+        {#if g.type === 'curve'}
+          <button class="btn" type="button" use:tip={t('features.useAsOutlineHint')} onclick={() => store.useAsOutline()}><Frame size={14} /> {t('features.useAsOutline')}</button>
+        {/if}
+      {/if}
       {#if ctrl && isOpenPath(g)}
         <Segmented
           label={t('ctrl.side')}
@@ -352,6 +402,29 @@
         </Section>
       {/each}
     {/if}
+  {:else if store.tab === 'plate'}
+    <Section id="features" title={t('features.list')}>
+      {#if store.items.length}
+        <ul class="list">
+          {#each store.items as it (it.key.kind === 'feature' ? it.key.id : -1)}
+            {@const f = (store.p.features ?? []).find((x) => it.key.kind === 'feature' && x.id === it.key.id)}
+            <li>
+              <button type="button" class="row" onclick={() => store.select(it.key)}>
+                <GeometryIcon type={it.geometry.type} size={13} />
+                <span class="rname">{f?.cut ? t('features.hole') : t('features.reserved')} {f?.id}</span>
+                {#if f?.shape.type === 'circle'}<span class="rval tabular">⌀ {fmtLen(f.shape.diameter, store.units)}</span>{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="muted">{t('canvas.empty.plate')}</p>
+      {/if}
+      <div class="adds">
+        <button class="btn" type="button" onclick={() => addAtCenter('hole')}><Plus size={14} /> {t('features.addHole')}</button>
+        <button class="btn" type="button" onclick={() => addAtCenter('rect')}><Square size={14} /> {t('features.addRect')}</button>
+      </div>
+    </Section>
   {:else if store.tab === 'path'}
     <Section id="paths" title={t('channels.path')}>
       {#if store.items.length}
@@ -407,7 +480,7 @@
         <dt>{t('metrics.holes')}</dt>
         <dd class="tabular">{num(m.holes, 0)}</dd>
         <dt>{t('metrics.openRatio')}</dt>
-        <dd class="tabular strong" class:warn={m.overlaps > 0} use:tip={m.overlaps > 0 ? t('metrics.openRatioOverlap') : t('metrics.openRatioHint')}>{pct(m.open_ratio, 1)}</dd>
+        <dd class="tabular strong" use:tip={t('metrics.openRatioHint')}>{pct(m.open_ratio, 1)}</dd>
         <dt>{t('metrics.openArea')}</dt>
         <dd class="tabular">{fmtArea(m.open_area, store.units)}</dd>
         <dt>{t('metrics.size')}</dt>
@@ -416,6 +489,14 @@
             {m.size_max - m.size_min < 0.005 ? fmtLen(m.size_min, store.units) : `${fmtLen(m.size_min, store.units)} – ${fmtLen(m.size_max, store.units)}`}
           {:else}—{/if}
         </dd>
+        {#if m.islands > 0}
+          <dt>{t('metrics.islands')}</dt>
+          <dd class="tabular warn">{num(m.islands, 0)}</dd>
+        {/if}
+        {#if report && report.stats.merged > 0}
+          <dt>{t('metrics.merged')}</dt>
+          <dd class="tabular">{num(report.stats.merged, 0)}</dd>
+        {/if}
         <dt>{t('metrics.bridgeMin')}</dt>
         <dd class="tabular" class:warn={thin || m.overlaps > 0}>
           {#if m.overlaps > 0}{t('metrics.overlap')}{:else if m.bridge_min != null}{fmtLen(m.bridge_min, store.units)}{:else}&gt; {fmtLen(m.bridge_search, store.units, 0)}{/if}
@@ -511,6 +592,12 @@
   .with-action .btn.icon {
     width: 24px;
     height: 24px;
+  }
+
+  .adds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s1);
   }
 
   .convert {

@@ -37,7 +37,7 @@ Critères d'acceptation :
 - Une grille 200 × 150 mm de ~2 000 trous se recalcule pendant le déplacement d'un contrôleur sans saccade visible.
 - Le DXF s'ouvre à la bonne échelle (mm) dans LightBurn, Inkscape et FreeCAD ; le SVG exporté puis rouvert redonne exactement le projet.
 
-## v0.2 — Dispositions et contrôleurs (jalon 2) · *à tester* (livrée le 23/10/2026)
+## v0.2 — Dispositions et contrôleurs (jalon 2) · *validée*
 
 - Dispositions : **Aléatoire** (Poisson-disc à densité variable, graine), **Spirale**, **Concentrique**, **Fibonacci** (phyllotaxie), **Hachures croisées**, **Chemin** (répétition le long d'un tracé).
 - Orientation selon le chemin (concentrique, spirale, chemin).
@@ -49,13 +49,16 @@ Critères d'acceptation :
 
 Acceptation : chaque disposition et chaque option a un test moteur (déterminisme compris : même graine, même résultat).
 
-## v0.3 — Contours et découpe (jalon 3)
+## v0.3 — Contours et découpe (jalon 3) · *à tester* (livrée le 23/10/2026)
 
 - Contours : ellipse, contour importé (SVG, DXF) ou dessiné.
 - **Découpe au contour** (booléens 2D, `i_overlay`) ; fusion des trous qui se chevauchent ; taux d'ouverture exact.
 - *Ajout FabVents* : **trous de fixation et zones réservées** (aucune perforation autour des vis, d'un logo, d'un passage de câble).
 - *Ajout FabVents* : **gabarits** de grilles de ventilateur 40 / 60 / 80 / 92 / 120 / 140 mm avec leurs trous de fixation.
 - Export **PNG** haute résolution, fond transparent.
+- *Ajout* : **zone perforée** (disque ou rectangle) distincte du contour de la plaque.
+
+Acceptation : découpe, fusion et îlots testés sur des cas à aire connue ; contours SVG et DXF (arcs, transformations, unités) relus par le moteur.
 
 ## v0.4 — Export STEP (jalon 4)
 

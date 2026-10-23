@@ -46,3 +46,22 @@ v0.1 testée et validée par l'utilisateur.
 - Libellés tronqués ou sur deux lignes (cible, départ, rotation, côté, nom de disposition).
 
 **Non fait.** Import dans LightBurn, FreeCAD et Fusion 360 ; découpe réelle.
+
+## 2026-10-23 — v0.3 : contours et découpe
+
+v0.2 testée et validée par l'utilisateur.
+
+**Choix** (ADR-0007).
+- Booléens `i_overlay` limités aux trous qui se chevauchent ou dépassent de la zone en mode Découper ; les autres trous gardent leurs cercles et arcs exacts.
+- Plaque, zone perforée et éléments de plaque décrits en régions âme + arrondi : contenance et écarts exacts, arêtes vérifiées pour les contours concaves.
+- Zone perforée séparée du contour (disque ou rectangle), utile aux grilles de ventilateur.
+- Import SVG (`roxmltree`, `svgtypes` : transformations, unités mm / px) et DXF (polylignes à *bulge*, cercles, ellipses, lignes et arcs chaînés, `$INSUNITS`) : le plus grand contour fermé devient la plaque, les autres des trous découpés.
+- Gabarits de ventilateur d'après les entraxes standard (32 à 124,5 mm) : plaque carrée, zone circulaire, 4 trous de fixation à garde 1,5 mm, grille hexagonale.
+- PNG rendu par l'interface (Canvas 2D, règle *evenodd* pour les îlots), 300 dpi plafonné à 8 192 px.
+
+**Vérification.** 97 tests ; rendus Inkscape du gabarit 120 mm et du mode Découper ; parcours dans le navigateur (voir STATUS).
+
+**Défauts corrigés pendant la vérification.**
+- Aire d'un disque découpé à 2 825 mm² au lieu de 2 827 : facettisation de la découpe passée de 0,01 à 0,002 mm.
+- Libellés « Par le centre » / « Trous entiers » et sélecteur de zone qui débordaient du panneau : libellés courts (« Centre », « Entiers »), titre de zone au-dessus du sélecteur.
+- Trous de fixation d'un gabarit hors de la plaque après import d'un contour : nouvel avertissement `features.outside`.

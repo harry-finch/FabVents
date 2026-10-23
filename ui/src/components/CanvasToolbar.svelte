@@ -22,11 +22,12 @@
     const p = store.project;
     if (!p) return 0;
     if (tab === 'path') return p.layout.mode === 'path' ? p.layout.paths.length : 0;
+    if (tab === 'plate') return p.features?.length ?? 0;
     return p.controllers.filter((c) => c[tab]).length;
   };
   // Zoom : 100 % = taille réelle à l'écran (96 px par pouce CSS).
   const zoomPct = $derived((store.view.scale / (96 / 25.4)) * 100);
-  const KEYS: Record<Tab, string> = { size: '1', spacing: '2', angle: '3', path: '4' };
+  const KEYS: Record<Tab, string> = { size: '1', spacing: '2', angle: '3', path: '4', plate: '5' };
 
 </script>
 

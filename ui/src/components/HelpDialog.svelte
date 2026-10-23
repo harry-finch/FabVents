@@ -12,7 +12,7 @@
     ['C', 'help.keys.curve'],
     ['I', 'help.keys.image'],
     ['R', 'help.keys.ruler'],
-    ['1 – 4', 'help.keys.channel'],
+    ['1 – 5', 'help.keys.channel'],
     ['F', 'help.keys.fit'],
     ['⌫', 'help.keys.delete'],
     ['← ↑ → ↓', 'help.keys.nudge'],

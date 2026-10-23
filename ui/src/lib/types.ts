@@ -4,7 +4,7 @@
 
 export type Vec2 = { x: number; y: number };
 
-export type Outline = 'rectangle' | 'circle';
+export type Outline = 'rectangle' | 'circle' | 'ellipse' | 'custom';
 
 export interface Plate {
   outline: Outline;
@@ -13,6 +13,28 @@ export interface Plate {
   corner_radius: number;
   thickness: number;
   margin: number;
+  /** Contour libre (`outline: 'custom'`), dans [0, width] × [0, height]. */
+  custom?: Vec2[];
+  /** Zone perforée (absente : toute la plaque). */
+  zone?: Zone;
+}
+
+export type Zone =
+  | { type: 'plate' }
+  | { type: 'circle'; center: Vec2; diameter: number }
+  | { type: 'rectangle'; center: Vec2; width: number; height: number; corner: number };
+
+export type FeatureShape =
+  | { type: 'circle'; center: Vec2; diameter: number }
+  | { type: 'rectangle'; center: Vec2; width: number; height: number; corner: number }
+  | ({ type: 'curve' } & Curve);
+
+/** Trou de fixation (`cut`) ou zone réservée, et sa garde (mm). */
+export interface Feature {
+  id: number;
+  shape: FeatureShape;
+  cut: boolean;
+  clearance: number;
 }
 
 export type GridPattern = 'square' | 'hexagonal' | 'staggered';
@@ -119,7 +141,7 @@ export interface Shape {
   rotation: number;
 }
 
-export type EdgeMode = 'center' | 'whole';
+export type EdgeMode = 'center' | 'whole' | 'clip';
 
 export interface Fabrication {
   min_size: number;
@@ -164,7 +186,9 @@ export type CtrlGeometry =
   | { type: 'circle'; center: Vec2; radius: number }
   | { type: 'ellipse'; center: Vec2; rx: number; ry: number; angle: number }
   | { type: 'polygon'; center: Vec2; radius: number; sides: number; angle: number }
-  | { type: 'image'; at: Vec2; width: number; height: number; raster: Raster };
+  | { type: 'image'; at: Vec2; width: number; height: number; raster: Raster }
+  /** Rectangle (zones réservées seulement). */
+  | { type: 'rect'; center: Vec2; width: number; height: number; corner: number };
 
 export type GeometryType = CtrlGeometry['type'];
 
@@ -172,7 +196,7 @@ export type Channel = 'size' | 'spacing' | 'angle';
 export const CHANNELS: Channel[] = ['size', 'spacing', 'angle'];
 
 /** Onglet du canevas : un canal, ou les tracés de la disposition Chemin. */
-export type Tab = Channel | 'path';
+export type Tab = Channel | 'path' | 'plate';
 
 export type Side = 'both' | 'left' | 'right';
 
@@ -197,6 +221,7 @@ export interface Project {
   edge: EdgeMode;
   fabrication: Fabrication;
   controllers: Controller[];
+  features?: Feature[];
 }
 
 export type Severity = 'error' | 'warning' | 'info';
@@ -220,6 +245,7 @@ export interface Metrics {
   bridge_search: number;
   overlaps: number;
   thin_bridges: number;
+  islands: number;
 }
 
 export interface Stats {
@@ -227,13 +253,15 @@ export interface Stats {
   removed_edge: number;
   removed_small: number;
   removed_cull: number;
+  removed_feature: number;
+  merged: number;
 }
 
 export interface Report {
   metrics: Metrics;
   stats: Stats;
   issues: Issue[];
-  stages: [boolean, boolean, boolean];
+  stages: [boolean, boolean, boolean, boolean];
 }
 
 /** Géométrie calculée par le moteur, prête à dessiner. */
@@ -242,8 +270,22 @@ export interface FrameData {
   polyPoints: Float64Array;
   polyOffsets: Uint32Array;
   outline: Float64Array;
+  /** Contours de la zone perforable. */
+  zonePoints: Float64Array;
+  zoneOffsets: Uint32Array;
   report: Report;
   ms: number;
 }
 
 export type Tool = 'select' | 'hand' | 'point' | 'line' | 'curve' | 'ruler';
+
+/** Tailles des gabarits de grille de ventilateur (mm). */
+export const FAN_SIZES = [40, 60, 80, 92, 120, 140];
+
+/** Contour importé (SVG, DXF). */
+export interface ImportedOutline {
+  outer: Vec2[];
+  inner: Vec2[][];
+  width: number;
+  height: number;
+}

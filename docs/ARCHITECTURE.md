@@ -21,24 +21,28 @@ Aucun serveur : l'interface est un site statique, le moteur tourne dans le navig
 
 ### `fabvents-core`
 
-Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`). Millimètres et degrés ; origine en bas à gauche de la plaque, Y vers le haut.
+Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`, `i_overlay` pour les booléens, `roxmltree` et `svgtypes` pour l'import SVG). Millimètres et degrés ; origine en bas à gauche de la plaque, Y vers le haut.
 
 | Module | Rôle |
 | --- | --- |
-| `project` | `Project` sérialisable (format `fabvents.project`, version 1) : plaque, disposition, forme, bords, fabrication, contrôleurs. Lecture avec contrôle du format et de la version. |
+| `project` | `Project` sérialisable (format `fabvents.project`, version 3) : plaque (contour, zone perforée), disposition, forme, bords, fabrication, contrôleurs, éléments de plaque (trous de fixation, zones réservées). Lecture avec contrôle du format et de la version. |
 | `validate` | Contrôle des valeurs : erreurs (motif non calculé) et avertissements, par code stable et chemin de champ. |
 | `geom` | `Vec2`, aires, distances point / segment / âme, arcs en *bulge*. |
 | `contour` | Contour exact : cercle, ou sommets avec arcs (*bulge*) ; contour d'une âme arrondie (somme de Minkowski) ; aire exacte ; facettisation à flèche donnée (ADR-0005). |
-| `plate` | Contour de la plaque : distance signée (zone perforable), contour exact, aire. |
+| `region` | Région plane en âme + arrondi (disque, rectangle arrondi, polygone) : distance signée, contenance d'un trou, écart, contour, élargissement. |
+| `plate` | Plaque et zone perforée en régions : distance signée, contour exact, aire, contour de la zone perforable (plaque réduite de la marge ∩ zone). |
+| `boolean` | Booléens `i_overlay` : décalage d'un contour, union des perforations coupée par la zone et privée des zones réservées, îlots. |
+| `import` | Contour importé d'un SVG (chemins, formes, transformations, unités) ou d'un DXF (polylignes à *bulge*, cercles, ellipses, lignes et arcs chaînés) : contour extérieur et découpes intérieures. |
+| `templates` | Gabarits de grilles de ventilateur 40 à 140 mm (entraxe, Ø des vis, ouverture). |
 | `layout` | Dispositions → germes (position, angle propre) : grille, aléatoire (Bridson à rayon variable), spirale, concentrique, Fibonacci, hachures croisées, chemin. Les dispositions à espacement libre lisent le canal Espacement. |
 | `curve` | Tracés : aplatissement à congés, subdivision, décalage parallèle, distance et côté (avec prolongement), placement à espacement variable le long d'un tracé. |
 | `raster` | Image d'un contrôleur : décodage base64, luminance bilinéaire en un point de la plaque. |
 | `rng` | Aléatoire reproductible (SplitMix64) et tirage attaché à une position. |
 | `shape` | Forme d'un trou à une taille et un angle donnés : âme, arrondi, rayon englobant, aire. |
 | `field` | Contrôleurs préparés (tracés aplatis, image décodée) ; poids avec options (côté, prolongement, remplissage, image) ; mélange pondéré par canal, symétrie, paliers, bornes du canal, disparition aléatoire (ADR-0004, ADR-0006). |
-| `pipeline` | Calcul par étages avec cache (germes → trous → mesures) ; messages du calcul. |
-| `metrics` | Taux d'ouverture, tailles, nervures exactes et chevauchements (grille de répartition). |
-| `export` | `svg` (projet embarqué dans `<metadata>`), `dxf` (R12), lecture du projet d'un SVG (ADR-0003). |
+| `pipeline` | Calcul par étages avec cache (germes → trous → mesures → découpe) ; messages du calcul. |
+| `metrics` | Taux d'ouverture, tailles, nervures exactes et chevauchements (grille de répartition), trous à fusionner. |
+| `export` | `Drawing` (contours intérieurs : trous simples, découpes, éléments découpés), `svg` (projet embarqué dans `<metadata>`), `dxf` (R12), lecture du projet d'un SVG (ADR-0003). |
 | `issue` | `Issue` : code, gravité, champ, valeur, nombre. |
 
 Cycle d'un calcul :
@@ -49,14 +53,16 @@ Project ─► validate ─► erreurs ? ─oui─► aucun trou, messages
                           ▼
         germes (plaque, disposition, contrôleurs d'espacement)   cache par égalité
           ─► trous : zone (centre), taille (canal Taille), taille mini, disparition,
-                     angle (canal Angle + disposition), forme, zone (trou entier)
-          ─► mesures (trous, nervure mini)
+                     angle (canal Angle + disposition), forme, zone (trou entier),
+                     garde des éléments de plaque
+          ─► mesures (trous, nervure mini, chevauchements)
+          ─► découpe : union des trous qui se chevauchent ou dépassent (Découper)
           ─► Frame : trous, mesures, statistiques, messages
 ```
 
 ### `fabvents-wasm`
 
-Pont `wasm-bindgen` : `Engine.compute(json)` renvoie la géométrie à dessiner en tableaux plats (cercles `x, y, r` ; autres contours facettisés à 0,02 mm ; contour de la plaque) et un rapport JSON ; `export_svg`, `export_dxf`, `read_project` (JSON ou SVG FabVents), `example_project`, `default_project`. Les erreurs sortent par leur code stable, traduit par l'interface. Le `Pipeline` reste en mémoire entre deux appels : seul l'étage modifié est recalculé.
+Pont `wasm-bindgen` : `Engine.compute(json)` renvoie la géométrie à dessiner en tableaux plats (cercles `x, y, r` ; autres contours et découpes facettisés à 0,02 mm ; contours de la plaque et de la zone perforée) et un rapport JSON ; `export_svg`, `export_dxf`, `read_project` (JSON ou SVG FabVents), `import_outline` (SVG ou DXF quelconque), `fan_template`, `example_project`, `default_project`. Les erreurs sortent par leur code stable, traduit par l'interface. Le `Pipeline` reste en mémoire entre deux appels : seul l'étage modifié est recalculé.
 
 ## Interface (`ui/`)
 
@@ -84,4 +90,4 @@ Svelte 5 (runes) + Vite + TypeScript, icônes `@lucide/svelte`, police Inter : m
 
 ## Décisions
 
-Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006).
+Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006), découpe et éléments de plaque (0007).

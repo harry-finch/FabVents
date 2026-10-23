@@ -1,25 +1,29 @@
 # État du projet
 
-**Jalon** : **v0.2 — dispositions et contrôleurs**, livrée pour essai (23/10/2026). v0.1 validée par l'utilisateur. Prochain jalon : v0.3 (contours et découpe), voir [ROADMAP.md](ROADMAP.md).
+**Jalon** : **v0.3 — contours et découpe**, livrée pour essai (23/10/2026). v0.1 et v0.2 validées par l'utilisateur. Prochain jalon : v0.4 (export STEP), voir [ROADMAP.md](ROADMAP.md).
 
 | Élément | État |
 | --- | --- |
-| Dispositions | Grille, aléatoire (Poisson-disc à densité variable, graine), spirale, concentrique, Fibonacci, hachures croisées, chemin (rangées parallèles, congés) ; orientation selon le tracé |
-| Contrôleurs | Point, ligne, courbe (congés par nœud), cercle, ellipse, polygone régulier, image ; canaux Taille, Espacement, Angle ; côté unique, prolongement, intérieur rempli, angle symétrique et par paliers, disparition aléatoire, unification portée / cible |
-| Canevas | Outils Courbe et Règle, import d'image (bouton, `I`, glisser-déposer), nœuds (double-clic, Alt + clic), menu contextuel, conversion en forme exacte, onglet Chemin ; calcul différé au relâchement si le premier calcul d'un geste dépasse 60 ms |
-| Plaque | Contrôleurs et chemins suivent la plaque redimensionnée ; option « Mettre le motif à l'échelle » |
-| Fichiers | Format de projet v2 ; les projets v1 se lisent tels quels (test) |
-| Tests | `cargo test --workspace` : 76 tests verts ; clippy : 0 avertissement ; `npm run check` : 0 erreur ; `npm run build` |
-| Vérifié | Dans le navigateur : les sept dispositions, espacement local (aléatoire), courbe fermée remplie puis convertie en ellipse, image en dégradé, chemin à congés sur 3 rangées, fentes concentriques orientées, angle symétrique, règle, redimensionnement à l'échelle. Natif : 25 000 germes aléatoires en 66 ms, grille de 43 000 trous en 8 ms |
-| Non vérifié | Import réel dans LightBurn, FreeCAD, Fusion 360 ; découpe d'une pièce |
+| Contours | Rectangle arrondi, disque, ellipse, contour libre importé (SVG, DXF) ou tracé (courbe fermée → « Utiliser comme contour ») ; contours intérieurs importés en trous découpés |
+| Zone perforée | Plaque entière, disque ou rectangle arrondi, réduite de la marge |
+| Bords | Par le centre, trous entiers, **découper** (booléens `i_overlay`) ; fusion des trous qui se chevauchent ; îlots comptés et signalés |
+| Éléments de plaque | Onglet Plaque (touche `5`) : trous de fixation (découpés) et zones réservées (disque, rectangle, tracé), garde réglable ; signalés s'ils débordent de la plaque |
+| Gabarits | Grilles de ventilateur 40 / 60 / 80 / 92 / 120 / 140 mm (menu Fichier) |
+| Mesures | Taux d'ouverture exact (chevauchements, découpe, îlots) |
+| Exports | SVG, DXF R12, projet, **PNG** 300 dpi (fond transparent, 8 192 px au plus) |
+| Fichiers | Format de projet v3 ; v1 et v2 se lisent tels quels |
+| Tests | `cargo test --workspace` : 97 tests verts ; clippy : 0 avertissement ; `npm run check` : 0 erreur ; `npm run build` |
+| Vérifié | Dans le navigateur : gabarit 120 mm, mode Découper (78 trous coupés à la zone), trou de fixation ajouté puis agrandi à Ø 20, import d'un SVG à arcs et chanfrein avec un trou intérieur, avertissement de débordement, PNG 150 × 100 mm → 1 772 × 1 182 px |
+| Non vérifié | Import de DXF réels (LightBurn, Inkscape, FreeCAD) ; exports relus dans LightBurn, FreeCAD, Fusion 360 ; découpe d'une pièce |
 
 ## Points ouverts
 
 - Couleur d'identité et logo : provisoires (vert chartreuse `#B5D93A`), à valider.
-- Fibonacci : l'espacement ne varie qu'avec la distance au centre (la spirale répartit chaque rayon sur tout le tour) ; un contrôleur d'espacement décentré a un effet diffus.
-- Taux d'ouverture surestimé quand des trous se chevauchent (signalé) : calcul exact en v0.3.
-- Motifs où tout se chevauche : la mesure des paires domine le calcul (≈ 140 ms pour 285 000 paires).
+- Fibonacci : l'espacement ne varie qu'avec la distance au centre.
+- Motifs où tout se chevauche : la mesure des paires et l'union dominent le calcul.
+- Contour libre : la distance au bord parcourt toutes les arêtes (lent au-delà de quelques milliers de sommets).
+- Importer un contour garde les éléments de plaque existants (ceux d'un gabarit peuvent alors déborder : signalé).
 
 ## Prochaine action
 
-Tester la v0.2 (liste dans le message de livraison), puis lancer la v0.3.
+Tester la v0.3 (liste dans le message de livraison), puis lancer la v0.4.

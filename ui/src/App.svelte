@@ -38,7 +38,7 @@
   });
 
   const TOOL_KEYS: Record<string, Tool> = { v: 'select', h: 'hand', p: 'point', l: 'line', c: 'curve', r: 'ruler' };
-  const TAB_KEYS: Record<string, Tab> = { '1': 'size', '2': 'spacing', '3': 'angle', '4': 'path' };
+  const TAB_KEYS: Record<string, Tab> = { '1': 'size', '2': 'spacing', '3': 'angle', '4': 'path', '5': 'plate' };
 
   function typing(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null;

@@ -50,13 +50,81 @@ export async function exportAs(format: 'svg' | 'dxf' | 'project') {
 }
 
 export async function openFile(file: File) {
-  store.openText(await file.text(), file.name);
+  const text = await file.text();
+  if (/\.dxf$/i.test(file.name)) await store.importOutlineText(text, file.name);
+  else await store.openText(text, file.name);
+}
+
+/** Choisit un SVG ou un DXF dont le contour devient celui de la plaque. */
+export function pickOutline() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.svg,.dxf,image/svg+xml';
+  input.onchange = () => {
+    const f = input.files?.[0];
+    if (f) void store.importOutline(f);
+  };
+  input.click();
+}
+
+/** PNG haute résolution, fond transparent : la matière en gris, les
+ *  perforations vides. 300 ppp, plafonné à 8 192 px de côté. */
+export function exportPng() {
+  const f = store.frame;
+  const p = store.project;
+  if (!f || !p) return;
+  const ext = store.plateExtent();
+  let dpi = 300;
+  const maxSide = 8192;
+  const side = (Math.max(ext.x, ext.y) / 25.4) * dpi;
+  if (side > maxSide) dpi = Math.floor((dpi * maxSide) / side);
+  const k = dpi / 25.4;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.ceil(ext.x * k));
+  c.height = Math.max(1, Math.ceil(ext.y * k));
+  const ctx = c.getContext('2d')!;
+  const X = (x: number) => x * k;
+  const Y = (y: number) => c.height - y * k;
+  ctx.beginPath();
+  ctx.moveTo(X(f.outline[0]), Y(f.outline[1]));
+  for (let i = 2; i < f.outline.length; i += 2) ctx.lineTo(X(f.outline[i]), Y(f.outline[i + 1]));
+  ctx.closePath();
+  for (let i = 0; i < f.circles.length; i += 3) {
+    const x = X(f.circles[i]);
+    const y = Y(f.circles[i + 1]);
+    const r = f.circles[i + 2] * k;
+    ctx.moveTo(x + r, y);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+  }
+  const pts = f.polyPoints;
+  const off = f.polyOffsets;
+  for (let j = 0; j + 1 < off.length; j++) {
+    if (off[j + 1] - off[j] < 2) continue;
+    ctx.moveTo(X(pts[2 * off[j]]), Y(pts[2 * off[j] + 1]));
+    for (let i = off[j] + 1; i < off[j + 1]; i++) ctx.lineTo(X(pts[2 * i]), Y(pts[2 * i + 1]));
+    ctx.closePath();
+  }
+  ctx.fillStyle = '#3a3d42';
+  ctx.fill('evenodd');
+  const name = `${baseName(p.name)}.png`;
+  c.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    store.toast(t('file.exportedPng', { name, dpi, w: c.width, h: c.height }));
+  }, 'image/png');
 }
 
 export function pickFile() {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.json,.svg,application/json,image/svg+xml';
+  input.accept = '.json,.svg,.dxf,application/json,image/svg+xml';
   input.onchange = () => {
     const f = input.files?.[0];
     if (f) void openFile(f);

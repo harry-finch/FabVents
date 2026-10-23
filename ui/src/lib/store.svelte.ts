@@ -13,7 +13,7 @@
 import { EngineClient } from './engine';
 import { t } from './i18n.svelte';
 import { rasterFromFile } from './image';
-import { scaleGeometry, toCircle, toEllipse, toPolygon } from './geometry';
+import { scaleGeometry, toCircle, toEllipse, toPolygon, translate } from './geometry';
 import {
   baseSpacing,
   CHANNELS,
@@ -22,7 +22,10 @@ import {
   type Controller,
   type CtrlGeometry,
   type Curve,
+  type Feature,
+  type FeatureShape,
   type FrameData,
+  type ImportedOutline,
   type Influence,
   type Layout,
   type LayoutMode,
@@ -75,7 +78,7 @@ export interface View {
 }
 
 /** Élément éditable sur le canevas. */
-export type ItemKey = { kind: 'ctrl'; id: number } | { kind: 'path'; index: number };
+export type ItemKey = { kind: 'ctrl'; id: number } | { kind: 'path'; index: number } | { kind: 'feature'; id: number };
 export interface Item {
   key: ItemKey;
   geometry: CtrlGeometry;
@@ -85,10 +88,24 @@ export interface Item {
   fill: boolean;
 }
 
-const sameKey = (a: ItemKey | null, b: ItemKey | null) =>
-  !!a && !!b && a.kind === b.kind && (a.kind === 'ctrl' ? a.id === (b as { id: number }).id : a.index === (b as { index: number }).index);
+const keyNum = (k: ItemKey) => (k.kind === 'path' ? k.index : k.id);
+export const sameKey = (a: ItemKey | null, b: ItemKey | null) => !!a && !!b && a.kind === b.kind && keyNum(a) === keyNum(b);
 
 const curveGeometry = (c: Curve): CtrlGeometry => ({ type: 'curve', points: c.points, closed: c.closed, fillets: c.fillets });
+
+/** Forme d'un élément de plaque, vue comme une géométrie du canevas. */
+export function featureGeometry(f: FeatureShape): CtrlGeometry {
+  if (f.type === 'circle') return { type: 'circle', center: f.center, radius: f.diameter / 2 };
+  if (f.type === 'rectangle') return { type: 'rect', center: f.center, width: f.width, height: f.height, corner: f.corner };
+  return curveGeometry(f);
+}
+
+function toFeatureShape(g: CtrlGeometry): FeatureShape | null {
+  if (g.type === 'circle') return { type: 'circle', center: g.center, diameter: g.radius * 2 };
+  if (g.type === 'rect') return { type: 'rectangle', center: g.center, width: g.width, height: g.height, corner: g.corner };
+  if (g.type === 'curve' && g.closed) return { type: 'curve', points: g.points, closed: true, fillets: g.fillets?.length ? g.fillets : undefined };
+  return null;
+}
 
 class Store {
   // ---- Projet
@@ -272,6 +289,11 @@ class Store {
       this.toast(t('file.opened', { name }));
     } catch (e) {
       const code = e instanceof Error ? e.message : '';
+      // Un SVG sans projet FabVents, ou un DXF : c'est un contour de plaque.
+      if (code === 'project.svg_without_project' || /\.dxf$/i.test(name)) {
+        await this.importOutlineText(text, name);
+        return;
+      }
       this.toast(t('file.openFailed', { name, reason: t(`errors.${code}` as never) }));
     }
   }
@@ -288,18 +310,20 @@ class Store {
 
   // ---- Onglets
 
-  /** Onglets du canevas : Taille, Espacement (si la disposition le suit), Angle, Chemin. */
+  /** Onglets du canevas : Taille, Espacement (si la disposition le suit),
+   *  Angle, Chemin (disposition Chemin), Plaque (fixations, zones réservées). */
   get tabs(): Tab[] {
     if (!this.project) return ['size', 'angle'];
     const l = this.p.layout;
     const out: Tab[] = CHANNELS.filter((c) => c !== 'spacing' || baseSpacing(l) != null);
     if (l.mode === 'path') out.push('path');
+    out.push('plate');
     return out;
   }
 
-  /** Canal affiché (null dans l'onglet Chemin). */
+  /** Canal affiché (null dans les onglets Chemin et Plaque). */
   get channel(): Channel | null {
-    return this.tab === 'path' ? null : this.tab;
+    return this.tab === 'path' || this.tab === 'plate' ? null : this.tab;
   }
 
   setTab(tab: Tab) {
@@ -316,6 +340,9 @@ class Store {
   get items(): Item[] {
     if (!this.project) return [];
     const ch = this.channel;
+    if (this.tab === 'plate') {
+      return (this.p.features ?? []).map((f) => ({ key: { kind: 'feature', id: f.id }, geometry: featureGeometry(f.shape), influence: null, fill: false }));
+    }
     if (!ch) {
       const l = this.p.layout;
       return l.mode === 'path'
@@ -330,6 +357,7 @@ class Store {
   itemExists(k: ItemKey): boolean {
     if (!this.project) return false;
     if (k.kind === 'ctrl') return this.p.controllers.some((c) => c.id === k.id);
+    if (k.kind === 'feature') return (this.p.features ?? []).some((f) => f.id === k.id);
     const l = this.p.layout;
     return l.mode === 'path' && k.index < l.paths.length;
   }
@@ -348,11 +376,20 @@ class Store {
     return s?.kind === 'ctrl' ? (this.project?.controllers.find((c) => c.id === s.id) ?? null) : null;
   }
 
-  /** Géométrie de l'élément sélectionné (contrôleur ou tracé). */
+  get selectedFeature(): Feature | null {
+    const s = this.selection;
+    return s?.kind === 'feature' ? ((this.project?.features ?? []).find((f) => f.id === s.id) ?? null) : null;
+  }
+
+  /** Géométrie de l'élément sélectionné (contrôleur, tracé ou élément de plaque). */
   get selectedGeometry(): CtrlGeometry | null {
     const s = this.selection;
     if (!s || !this.project) return null;
     if (s.kind === 'ctrl') return this.selectedController?.geometry ?? null;
+    if (s.kind === 'feature') {
+      const f = this.selectedFeature;
+      return f ? featureGeometry(f.shape) : null;
+    }
     const l = this.p.layout;
     return l.mode === 'path' && l.paths[s.index] ? curveGeometry(l.paths[s.index]) : null;
   }
@@ -363,15 +400,32 @@ class Store {
       if (k.kind === 'ctrl') {
         const c = p.controllers.find((x) => x.id === k.id);
         if (c) c.geometry = g;
+      } else if (k.kind === 'feature') {
+        const f = (p.features ?? []).find((x) => x.id === k.id);
+        const shape = toFeatureShape(g);
+        if (f && shape) f.shape = shape;
       } else if (p.layout.mode === 'path' && g.type === 'curve' && p.layout.paths[k.index]) {
         p.layout.paths[k.index] = { points: g.points, closed: g.closed, fillets: g.fillets?.length ? g.fillets : undefined };
       }
     }, key);
   }
 
-  /** Ajoute un contrôleur sur le canal affiché, ou un tracé dans l'onglet Chemin. */
+  /** Ajoute un contrôleur sur le canal affiché, un tracé dans l'onglet
+   *  Chemin, ou un élément dans l'onglet Plaque (point : trou de fixation ;
+   *  tracé fermé : zone réservée). */
   addItem(geometry: CtrlGeometry) {
     const ch = this.channel;
+    if (this.tab === 'plate') {
+      const shape: FeatureShape | null =
+        geometry.type === 'point' ? { type: 'circle', center: geometry.at, diameter: 4 } : toFeatureShape(geometry);
+      if (!shape) {
+        this.toast(t('features.closedOnly'));
+        return;
+      }
+      const cut = geometry.type === 'point';
+      this.addFeature({ shape, cut, clearance: cut ? 2 : 1 });
+      return;
+    }
     if (!ch) {
       if (geometry.type !== 'curve') return;
       let index = 0;
@@ -394,11 +448,22 @@ class Store {
     this.select({ kind: 'ctrl', id });
   }
 
+  addFeature(f: Omit<Feature, 'id'>) {
+    let id = 0;
+    this.edit((p) => {
+      p.features ??= [];
+      id = p.features.reduce((m, x) => Math.max(m, x.id), 0) + 1;
+      p.features.push({ ...f, id });
+    });
+    this.select({ kind: 'feature', id });
+  }
+
   removeSelected() {
     const s = this.selection;
     if (!s) return;
     this.edit((p) => {
       if (s.kind === 'ctrl') p.controllers = p.controllers.filter((c) => c.id !== s.id);
+      else if (s.kind === 'feature') p.features = (p.features ?? []).filter((f) => f.id !== s.id);
       else if (p.layout.mode === 'path') p.layout.paths.splice(s.index, 1);
     });
     this.select(null);
@@ -419,6 +484,12 @@ class Store {
     if (moved.type === 'curve') moved.points = moved.points.map(off);
     if (s.kind === 'path') {
       this.addItem(moved);
+      return;
+    }
+    if (s.kind === 'feature') {
+      const f = this.selectedFeature!;
+      const shape = toFeatureShape(moved);
+      if (shape) this.addFeature({ shape, cut: f.cut, clearance: f.clearance });
       return;
     }
     const src = this.selectedController!;
@@ -478,6 +549,82 @@ class Store {
     }
   }
 
+  // ---- Contour de la plaque, gabarits
+
+  /** Charge un gabarit de grille de ventilateur (nouveau projet, annulable). */
+  async applyTemplate(size: number) {
+    try {
+      const json = await this.engine.fanTemplate(size);
+      if (this.project) this.#push(this.#snapshot());
+      this.#replace(json);
+      this.select(null);
+      this.fitSeq++;
+      this.toast(t('templates.loaded', { size }));
+    } catch {
+      this.toast(t('templates.failed'));
+    }
+  }
+
+  /** Contour importé (SVG, DXF) : devient le contour de la plaque, ses
+   *  contours intérieurs des découpes. */
+  async importOutline(file: File) {
+    await this.importOutlineText(await file.text(), file.name);
+  }
+
+  async importOutlineText(text: string, name: string) {
+    const file = { name };
+    try {
+      const r: ImportedOutline = JSON.parse(await this.engine.importOutline(text));
+      const round = (v: Vec2) => ({ x: Math.round(v.x * 1000) / 1000, y: Math.round(v.y * 1000) / 1000 });
+      this.edit((p) => {
+        p.plate.outline = 'custom';
+        p.plate.custom = r.outer.map(round);
+        p.plate.width = Math.round(r.width * 1000) / 1000;
+        p.plate.height = Math.round(r.height * 1000) / 1000;
+        p.features ??= [];
+        let id = p.features.reduce((m, x) => Math.max(m, x.id), 0);
+        for (const c of r.inner) p.features.push({ id: ++id, shape: { type: 'curve', points: c.map(round), closed: true }, cut: true, clearance: 2 });
+      });
+      this.fitSeq++;
+      this.toast(t('plate.imported', { name: file.name, n: r.inner.length }));
+    } catch (e) {
+      const code = e instanceof Error ? e.message : '';
+      this.toast(t('file.openFailed', { name: file.name, reason: t(`errors.${code}` as never) }));
+    }
+  }
+
+  /** Le tracé fermé sélectionné (onglet Plaque) devient le contour de la plaque. */
+  useAsOutline() {
+    const f = this.selectedFeature;
+    if (!f || f.shape.type !== 'curve') return;
+    const pts = f.shape.points;
+    const x0 = Math.min(...pts.map((p) => p.x));
+    const y0 = Math.min(...pts.map((p) => p.y));
+    const x1 = Math.max(...pts.map((p) => p.x));
+    const y1 = Math.max(...pts.map((p) => p.y));
+    const d = { x: -x0, y: -y0 };
+    const id = f.id;
+    this.edit((p) => {
+      p.features = (p.features ?? []).filter((x) => x.id !== id);
+      // Tout le projet suit, pour que le contour parte de l'origine.
+      for (const c of p.controllers) c.geometry = translate(c.geometry, d);
+      for (const x of p.features) {
+        const s = toFeatureShape(translate(featureGeometry(x.shape), d));
+        if (s) x.shape = s;
+      }
+      if (p.layout.mode === 'path') {
+        p.layout.paths = p.layout.paths.map((c) => ({ ...c, points: c.points.map((q) => ({ x: q.x + d.x, y: q.y + d.y })) }));
+      }
+      if (p.plate.zone && p.plate.zone.type !== 'plate') p.plate.zone.center = { x: p.plate.zone.center.x + d.x, y: p.plate.zone.center.y + d.y };
+      p.plate.outline = 'custom';
+      p.plate.custom = pts.map((q) => ({ x: q.x + d.x, y: q.y + d.y }));
+      p.plate.width = x1 - x0;
+      p.plate.height = y1 - y0;
+    });
+    this.select(null);
+    this.fitSeq++;
+  }
+
   // ---- Disposition et plaque
 
   /** Change de disposition en gardant une densité voisine. */
@@ -533,6 +680,22 @@ class Store {
             if (ch !== 'angle') inf.target = r(inf.target);
           }
         }
+      }
+      if (p.plate.custom) p.plate.custom = p.plate.custom.map((q) => ({ x: q.x * kx, y: q.y * ky }));
+      const z = p.plate.zone;
+      if (z && z.type !== 'plate') {
+        z.center = { x: z.center.x * kx, y: z.center.y * ky };
+        if (all && z.type === 'circle') z.diameter = r(z.diameter);
+        if (all && z.type === 'rectangle') {
+          z.width *= kx;
+          z.height *= ky;
+          z.corner = r(z.corner);
+        }
+      }
+      for (const f of p.features ?? []) {
+        // Les trous de fixation gardent leur diamètre (celui de la vis).
+        const s = toFeatureShape(scaleGeometry(featureGeometry(f.shape), kx, ky, k, all && !f.cut));
+        if (s) f.shape = s;
       }
       const l = p.layout;
       if (l.mode === 'path') {

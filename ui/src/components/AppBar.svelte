@@ -1,13 +1,14 @@
 <script lang="ts">
   // Barre d'application : identité, projet (nom et menu Fichier), unités,
   // langue, thème, aide, et l'action principale : exporter.
-  import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, Monitor, Moon, Save, Sparkles, Sun, FileImage, FileCode, FileBraces, FileText } from '@lucide/svelte';
+  import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, Monitor, Moon, Save, Sparkles, Sun, FileImage, FileCode, FileBraces, FileText, Fan, ImageDown } from '@lucide/svelte';
   import Popover from './Popover.svelte';
   import { theme, THEMES } from '../lib/theme.svelte';
   import { store } from '../lib/store.svelte';
   import { tip } from '../lib/tip';
   import { i18n, LOCALES, t } from '../lib/i18n.svelte';
-  import { exportAs, pickFile } from '../lib/files';
+  import { exportAs, exportPng, pickFile } from '../lib/files';
+  import { FAN_SIZES } from '../lib/types';
 
   // Texte en cours de saisie : l'encart suit sa longueur (voir `.sizer`).
   let draft = $state<string | null>(null);
@@ -34,6 +35,12 @@
       {#snippet content({ close })}
         <button class="row" type="button" onclick={() => { close(); store.newProject(false); }}><FilePlus size={14} /><span class="rname">{t('file.new')}</span></button>
         <button class="row" type="button" onclick={() => { close(); store.newProject(true); }}><Sparkles size={14} /><span class="rname">{t('file.example')}</span></button>
+        <p class="sub">{t('templates.fan')}</p>
+        <div class="fans">
+          {#each FAN_SIZES as size (size)}
+            <button class="chip tabular" type="button" use:tip={t('templates.fanHint', { size })} onclick={() => { close(); void store.applyTemplate(size); }}><Fan size={12} /> {size}</button>
+          {/each}
+        </div>
         <div class="divider"></div>
         <button class="row" type="button" onclick={() => { close(); pickFile(); }}><FolderOpen size={14} /><span class="rname">{t('file.open')}</span><span class="kbd">⌘O</span></button>
         <button class="row" type="button" onclick={() => { close(); void exportAs('project'); }}><Save size={14} /><span class="rname">{t('file.save')}</span><span class="kbd">⌘S</span></button>
@@ -101,6 +108,10 @@
         <button class="row" type="button" disabled={blocked} onclick={() => { close(); void exportAs('dxf'); }}>
           <FileCode size={14} />
           <span class="txt"><span class="rname">{t('export.dxf')}</span><span class="desc">{t('export.dxfHint')}</span></span>
+        </button>
+        <button class="row" type="button" disabled={blocked || !store.frame} onclick={() => { close(); exportPng(); }}>
+          <ImageDown size={14} />
+          <span class="txt"><span class="rname">{t('export.png')}</span><span class="desc">{t('export.pngHint')}</span></span>
         </button>
         <div class="divider"></div>
         <button class="row" type="button" onclick={() => { close(); void exportAs('project'); }}>
@@ -321,6 +332,39 @@
     height: 1px;
     margin: var(--s1) 0;
     background: var(--divider);
+  }
+
+  .sub {
+    margin: var(--s2) var(--s2) var(--s1);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-section);
+  }
+
+  .fans {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s1);
+    padding: 0 var(--s2) var(--s1);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 var(--s2);
+    background: var(--bg-control);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: var(--fs-sm);
+  }
+
+  .chip:hover {
+    border-color: var(--accent);
   }
 
   .note {

@@ -62,10 +62,10 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | --- | --- | --- | --- |
 | BND-01 | Plaque rectangulaire (coins arrondis) ou ronde, marge | v0.1 | fait |
 | BND-02 | Bords : par le centre, trous entiers | v0.1 | fait |
-| BND-03 | Bords : découpe au contour (booléens 2D) | v0.3 | prévu |
-| BND-04 | Ellipse ; contour importé ou dessiné | v0.3 | prévu |
-| BND-05 | *Ajout* : trous de fixation et zones réservées | v0.3 | prévu |
-| BND-06 | *Ajout* : gabarits de grilles de ventilateur standard | v0.3 | prévu |
+| BND-03 | Bords : découpe au contour (booléens 2D) | v0.3 | fait |
+| BND-04 | Ellipse ; contour importé ou dessiné | v0.3 | fait |
+| BND-05 | *Ajout* : trous de fixation et zones réservées | v0.3 | fait |
+| BND-06 | *Ajout* : gabarits de grilles de ventilateur standard | v0.3 | fait |
 
 ## Mesures et fabrication (FAB)
 
@@ -75,7 +75,7 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | FAB-02 | *Ajout* : nervure minimale mesurée et seuil d'alerte | v0.1 | fait |
 | FAB-03 | *Ajout* : trous trop petits supprimés et comptés (jamais en silence) | v0.1 | fait |
 | FAB-04 | Chevauchements détectés et signalés | v0.1 | fait |
-| FAB-05 | Taux d'ouverture exact (booléens) avec chevauchements et découpe | v0.3 | prévu |
+| FAB-05 | Taux d'ouverture exact (booléens) avec chevauchements et découpe | v0.3 | fait |
 | FAB-06 | Solveur de taux d'ouverture cible (dichotomie) | v0.7 | prévu |
 
 ## Exports et fichiers (EXP)
@@ -86,7 +86,7 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | EXP-02 | DXF R12 en mm, calques `CUT_INNER` / `CUT_OUTER`, cercles exacts | v0.1 | fait |
 | EXP-03 | Projet `.fabvents.json` ; ouverture d'un projet ou d'un SVG FabVents | v0.1 | fait |
 | EXP-04 | Reprise automatique du dernier projet | v0.1 | fait |
-| EXP-05 | PNG haute résolution, fond transparent | v0.3 | prévu |
+| EXP-05 | PNG haute résolution, fond transparent | v0.3 | fait |
 | EXP-06 | STEP : plaque B-Rep, cercles analytiques | v0.4 | prévu |
 | EXP-07 | STEP : découpage en dalles (ZIP ou assemblage) | v0.4 | prévu |
 | EXP-08 | STEP : angle de dépouille avec validation | v0.4 | prévu |

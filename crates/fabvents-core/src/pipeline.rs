@@ -298,6 +298,19 @@ impl Pipeline {
         if self.stats.removed_feature > 0 {
             issues.push(Issue::info("holes.removed_feature").count(self.stats.removed_feature));
         }
+        let plate = p.plate.region();
+        let outside = p
+            .features
+            .iter()
+            .filter(|f| f.cut)
+            .filter(|f| {
+                let r = feature_region(f);
+                !plate.fits(&r.core, r.round, 0.0)
+            })
+            .count();
+        if outside > 0 {
+            issues.push(Issue::warning("features.outside").count(outside));
+        }
         if m.overlaps > 0 {
             issues.push(Issue::info("holes.merged").count(m.overlaps));
         }
@@ -749,6 +762,14 @@ mod tests {
             .holes
             .iter()
             .all(|h| h.center.distance(Vec2::new(50.0, 50.0)) - 1.0 - 5.0 >= 3.0 - 1e-9));
+        assert!(!f.issues.iter().any(|i| i.code == "features.outside"));
+        // Un trou de fixation à cheval sur le bord est signalé.
+        p.features[0].shape = FeatureShape::Circle {
+            center: Vec2::new(99.0, 50.0),
+            diameter: 10.0,
+        };
+        let f = pl.compute(&p);
+        assert!(f.issues.iter().any(|i| i.code == "features.outside"));
     }
 
     #[test]

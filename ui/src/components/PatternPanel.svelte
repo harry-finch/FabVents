@@ -8,11 +8,12 @@
   import Disclosure from './Disclosure.svelte';
   import ShapeGlyph from './ShapeGlyph.svelte';
   import LayoutPicker from './LayoutPicker.svelte';
-  import { Dices, Spline } from '@lucide/svelte';
+  import { Dices, Spline, Upload } from '@lucide/svelte';
+  import { pickOutline } from '../lib/files';
   import { store } from '../lib/store.svelte';
   import { t } from '../lib/i18n.svelte';
   import { tip } from '../lib/tip';
-  import type { EdgeMode, GridPattern, Outline, ShapeKind, ShapeType } from '../lib/types';
+  import type { EdgeMode, GridPattern, Outline, ShapeKind, ShapeType, Zone } from '../lib/types';
 
   const p = $derived(store.p);
   const l = $derived(p.layout);
@@ -23,6 +24,36 @@
     store.edit((q) => {
       (q.layout as unknown as Record<string, unknown>)[field] = v;
     }, `layout.${field}`);
+  }
+
+  function setOutline(v: Outline) {
+    if (v === 'custom' && !(p.plate.custom?.length ?? 0)) {
+      pickOutline();
+      return;
+    }
+    store.edit((q) => (q.plate.outline = v));
+  }
+
+  const zone = $derived<Zone>(p.plate.zone ?? { type: 'plate' });
+  function setZone(type: Zone['type']) {
+    const ext = store.plateExtent();
+    const center = { x: ext.x / 2, y: ext.y / 2 };
+    const r = (v: number) => Math.round(v * 10) / 10;
+    store.edit((q) => {
+      if (type === 'plate') delete q.plate.zone;
+      else if (type === 'circle') q.plate.zone = { type, center, diameter: r(0.8 * Math.min(ext.x, ext.y)) };
+      else q.plate.zone = { type, center, width: r(0.8 * ext.x), height: r(0.8 * ext.y), corner: 4 };
+    });
+  }
+  function setZoneField(field: string, v: number) {
+    store.edit((q) => {
+      const z = q.plate.zone as unknown as Record<string, unknown> | undefined;
+      if (!z) return;
+      if (field === 'cx' || field === 'cy') {
+        const c = z.center as { x: number; y: number };
+        z.center = field === 'cx' ? { ...c, x: v } : { ...c, y: v };
+      } else z[field] = v;
+    }, `zone.${field}`);
   }
 
   function drawPath() {
@@ -53,30 +84,57 @@
 
 <aside class="panel" aria-label={t('panel.pattern')}>
   <Section id="plate" title={t('plate.title')} step={1}>
-    <Field label={t('plate.outline')}>
-      <Segmented
-        label={t('plate.outline')}
-        value={p.plate.outline}
-        options={[
-          { id: 'rectangle', label: t('plate.rectangle') },
-          { id: 'circle', label: t('plate.circle') },
-        ]}
-        onchange={(v: Outline) => store.edit((q) => (q.plate.outline = v))}
-      />
-    </Field>
-    {#if p.plate.outline === 'rectangle'}
+    <Segmented
+      label={t('plate.outline')}
+      value={p.plate.outline}
+      options={[
+        { id: 'rectangle', label: t('plate.rectangle') },
+        { id: 'circle', label: t('plate.circle') },
+        { id: 'ellipse', label: t('plate.ellipse') },
+        { id: 'custom', label: t('plate.custom'), hint: t('plate.customHint') },
+      ]}
+      onchange={setOutline}
+    />
+    {#if p.plate.outline === 'circle'}
+      <NumField label={t('plate.diameter')} field="plate.width" min={0} value={p.plate.width} onchange={(v) => store.resizePlate(v, p.plate.height)} />
+    {:else}
       <NumField label={t('plate.width')} field="plate.width" min={0} value={p.plate.width} onchange={(v) => store.resizePlate(v, p.plate.height)} />
       <NumField label={t('plate.height')} field="plate.height" min={0} value={p.plate.height} onchange={(v) => store.resizePlate(p.plate.width, v)} />
-      <NumField label={t('plate.corner')} field="plate.corner_radius" min={0} value={p.plate.corner_radius} onchange={(v) => store.edit((q) => (q.plate.corner_radius = v), 'plate.corner')} />
-    {:else}
-      <NumField label={t('plate.diameter')} field="plate.width" min={0} value={p.plate.width} onchange={(v) => store.resizePlate(v, p.plate.height)} />
     {/if}
+    {#if p.plate.outline === 'rectangle'}
+      <NumField label={t('plate.corner')} field="plate.corner_radius" min={0} value={p.plate.corner_radius} onchange={(v) => store.edit((q) => (q.plate.corner_radius = v), 'plate.corner')} />
+    {/if}
+    <button class="btn quiet import" type="button" use:tip={t('plate.importHint')} onclick={pickOutline}><Upload size={14} /> {t('plate.import')}</button>
     <label class="check" use:tip={t('plate.scalePatternHint')}>
       <input type="checkbox" bind:checked={store.scalePattern} />
       {t('plate.scalePattern')}
     </label>
     <NumField label={t('plate.margin')} hint={t('plate.marginHint')} field="plate.margin" min={0} value={p.plate.margin} onchange={(v) => store.edit((q) => (q.plate.margin = v), 'plate.margin')} />
     <NumField label={t('plate.thickness')} hint={t('plate.thicknessHint')} field="plate.thickness" min={0} value={p.plate.thickness} onchange={(v) => store.edit((q) => (q.plate.thickness = v), 'plate.thickness')} />
+    <p class="sub" use:tip={t('zone.hint')}>{t('zone.title')}</p>
+    <Segmented
+      label={t('zone.title')}
+      value={zone.type}
+      options={[
+        { id: 'plate', label: t('zone.plate'), hint: t('zone.hint') },
+        { id: 'circle', label: t('zone.circle'), hint: t('zone.hint') },
+        { id: 'rectangle', label: t('zone.rectangle'), hint: t('zone.hint') },
+      ]}
+      onchange={setZone}
+    />
+    {#if zone.type === 'circle'}
+      <NumField label={t('plate.diameter')} field="plate.zone.diameter" min={0} value={zone.diameter} onchange={(v) => setZoneField('diameter', v)} />
+    {:else if zone.type === 'rectangle'}
+      <NumField label={t('plate.width')} field="plate.zone.width" min={0} value={zone.width} onchange={(v) => setZoneField('width', v)} />
+      <NumField label={t('plate.height')} field="plate.zone.height" min={0} value={zone.height} onchange={(v) => setZoneField('height', v)} />
+      <NumField label={t('plate.corner')} field="plate.zone.corner" min={0} value={zone.corner} onchange={(v) => setZoneField('corner', v)} />
+    {/if}
+    {#if zone.type !== 'plate'}
+      <Disclosure id="zone.center" label={t('zone.center')}>
+        <NumField label={t('ctrl.cx')} value={zone.center.x} onchange={(v) => setZoneField('cx', v)} />
+        <NumField label={t('ctrl.cy')} value={zone.center.y} onchange={(v) => setZoneField('cy', v)} />
+      </Disclosure>
+    {/if}
   </Section>
 
   <Section id="layout" title={t('layout.title')} step={2}>
@@ -215,6 +273,7 @@
       options={[
         { id: 'center', label: t('edge.center'), hint: t('edge.centerHint') },
         { id: 'whole', label: t('edge.whole'), hint: t('edge.wholeHint') },
+        { id: 'clip', label: t('edge.clip'), hint: t('edge.clipHint') },
       ]}
       onchange={(v: EdgeMode) => store.edit((q) => (q.edge = v))}
     />
@@ -254,6 +313,16 @@
 
   .grow-right {
     margin-left: auto;
+  }
+
+  .import {
+    align-self: flex-start;
+  }
+
+  .sub {
+    margin: var(--s1) 0 0;
+    color: var(--text-secondary);
+    font-size: var(--fs-sm);
   }
 
   .shapes {
