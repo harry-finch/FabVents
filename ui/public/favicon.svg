@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>FabVents — provisoire</title>
+  <!-- Même tuile que FabSpeed ; perforations dont la taille croît vers le centre. -->
+  <path d="M31 4 L97 4 C111.912 4 124 16.088 124 31 L124 97 C124 111.912 111.912 124 97 124 L31 124 C16.088 124 4 111.912 4 97 L4 31 C4 16.088 16.088 4 31 4 Z" fill="#181f2a" stroke="#354759" stroke-width="3.6"/>
+  <g id="symbol" fill="#B5D93A">
+    <circle cx="64.000" cy="64.000" r="10.5"/>
+    <circle cx="64.000" cy="40.000" r="7.2"/>
+    <circle cx="43.215" cy="52.000" r="7.2"/>
+    <circle cx="43.215" cy="76.000" r="7.2"/>
+    <circle cx="64.000" cy="88.000" r="7.2"/>
+    <circle cx="84.785" cy="76.000" r="7.2"/>
+    <circle cx="84.785" cy="52.000" r="7.2"/>
+    <circle cx="64.000" cy="16.000" r="4.2"/>
+    <circle cx="43.215" cy="28.000" r="4.6"/>
+    <circle cx="22.431" cy="40.000" r="4.2"/>
+    <circle cx="22.431" cy="64.000" r="4.6"/>
+    <circle cx="22.431" cy="88.000" r="4.2"/>
+    <circle cx="43.215" cy="100.000" r="4.6"/>
+    <circle cx="64.000" cy="112.000" r="4.2"/>
+    <circle cx="84.785" cy="100.000" r="4.6"/>
+    <circle cx="105.569" cy="88.000" r="4.2"/>
+    <circle cx="105.569" cy="64.000" r="4.6"/>
+    <circle cx="105.569" cy="40.000" r="4.2"/>
+    <circle cx="84.785" cy="28.000" r="4.6"/>
+  </g>
+</svg>

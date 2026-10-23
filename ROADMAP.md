@@ -14,7 +14,7 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 
 ---
 
-## v0.1 — Tranche verticale (jalon 1) · *en cours*
+## v0.1 — Tranche verticale (jalon 1) · *à tester* (livrée le 23/10/2026)
 
 **But** : dessiner une grille de ventilation à trous de taille variable et l'envoyer à la découpeuse laser, de bout en bout.
 
