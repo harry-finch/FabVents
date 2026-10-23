@@ -1,0 +1,21 @@
+# Rust
+/target/
+
+# Interface
+/ui/node_modules/
+/ui/dist/
+# Moteur compilé en WebAssembly (généré par `npm run wasm`)
+/ui/src/wasm/
+
+# Recherche (conversations, documents de travail) : hors dépôt public
+/docs/research/
+
+# Builds de l'application de bureau
+/dist-desktop/
+/crates/fabvents-desktop/gen/
+
+# Environnement et fichiers temporaires
+.env
+.tmp/
+.DS_Store
+*.log
