@@ -9,6 +9,10 @@
   import { i18n, LOCALES, t } from '../lib/i18n.svelte';
   import { exportAs, pickFile } from '../lib/files';
 
+  // Texte en cours de saisie : l'encart suit sa longueur (voir `.sizer`).
+  let draft = $state<string | null>(null);
+  const shown = $derived(draft ?? store.p.name);
+
   const blocked = $derived(!!store.frame?.report.issues.some((i) => i.severity === 'error'));
 </script>
 
@@ -39,18 +43,24 @@
     <label class="pbox" use:tip={t('file.nameHint')}>
       <FileText size={14} />
       <span class="plabel">{t('file.project')}</span>
-      <input
-      class="pname"
-      type="text"
-      placeholder={t('file.untitled')}
-      aria-label={t('file.name')}
-      value={store.p.name}
-      onchange={(e) => {
-        const v = (e.currentTarget as HTMLInputElement).value;
-        store.edit((p) => (p.name = v));
-      }}
-      onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
-      />
+      <span class="pfield">
+        <span class="sizer" aria-hidden="true">{shown || t('file.untitled')}</span>
+        <input
+          class="pname"
+          type="text"
+          size="1"
+          placeholder={t('file.untitled')}
+          aria-label={t('file.name')}
+          value={store.p.name}
+          oninput={(e) => (draft = (e.currentTarget as HTMLInputElement).value)}
+          onchange={(e) => {
+            const v = (e.currentTarget as HTMLInputElement).value;
+            draft = null;
+            store.edit((p) => (p.name = v));
+          }}
+          onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+        />
+      </span>
     </label>
   </div>
 
@@ -190,8 +200,8 @@
     display: flex;
     align-items: center;
     gap: var(--s2);
-    width: 340px;
     min-width: 0;
+    max-width: 460px;
     height: var(--control-h);
     padding: 0 var(--s2);
     background: var(--bg-panel);
@@ -214,8 +224,32 @@
     white-space: nowrap;
   }
 
+  /* Champ à la largeur de son texte : le texte invisible du `.sizer` et le
+     champ partagent la même case de grille. */
+  .pfield {
+    display: inline-grid;
+    min-width: 0;
+    height: 100%;
+    align-items: center;
+  }
+
+  .sizer,
   .pname {
-    flex: 1;
+    grid-area: 1 / 1;
+    font: inherit;
+    font-weight: 600;
+    white-space: pre;
+  }
+
+  .sizer {
+    visibility: hidden;
+    min-width: 40px;
+    padding-right: 2px;
+    overflow: hidden;
+  }
+
+  .pname {
+    width: 100%;
     min-width: 0;
     height: 100%;
     padding: 0;
@@ -229,7 +263,7 @@
 
   @media (max-width: 1100px) {
     .pbox {
-      width: 240px;
+      max-width: 280px;
     }
   }
 
