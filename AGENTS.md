@@ -6,7 +6,8 @@ FabVents : générateur de motifs de perforation paramétriques (grilles de vent
 
 ## Skills à utiliser (`.agents/skills/`)
 
-- `professional-workshop-ui` : toute modification de l'interface (même langage visuel que FabSpeed).
+- `fab-design-system` : toute modification de l'interface ; jetons, composants, mise en page, textes et identité de la famille Fab, avec un kit de démarrage pour une nouvelle application. Ses valeurs chiffrées font foi.
+- `professional-workshop-ui` : les mêmes principes en termes généraux.
 - `project-documentation` : STATUS, DEVLOG, ROADMAP, ADR, FEATURES.
 
 ## Règles

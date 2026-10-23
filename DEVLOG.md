@@ -69,3 +69,7 @@ v0.2 testée et validée par l'utilisateur.
 ## 2026-10-23 — v0.3 validée, identité retenue
 
 v0.3 testée et validée par l'utilisateur. Logo et couleur d'identité (vert chartreuse `#B5D93A`) retenus. Dépôt publié sur GitHub (public, GPL-3.0-or-later).
+
+## 2026-10-23 — Skill `fab-design-system`
+
+Thème, style graphique et philosophie UX de la famille Fab réunis dans une skill réutilisable (`.agents/skills/fab-design-system/`), tirée du code de FabSpeed et de FabVents : dix références (philosophie, jetons sombre / clair, typographie, mise en page, composants, interactions, textes et langues, canevas, identité et logo, revue) et un kit de démarrage Svelte 5 (jetons, thème, langues, unités, infobulles, onze composants) qui passe `svelte-check` et `vite build`. Relevé au passage : les logos de FabCAM (bleu) et de KiPartManager (ambre) sont proches des couleurs de sens ; la skill demande une teinte distincte pour toute nouvelle application.
