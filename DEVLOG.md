@@ -23,3 +23,26 @@
 - Taux d'ouverture affiché à 238 % sur une grille qui se chevauche : valeur conservée mais signalée (couleur d'avertissement, infobulle).
 
 **Non fait.** Import dans LightBurn, FreeCAD et Fusion 360 ; découpe réelle.
+
+## 2026-10-23 — v0.2 : dispositions et contrôleurs
+
+v0.1 testée et validée par l'utilisateur.
+
+**Choix.**
+- Format de projet v2, purement additif : les fichiers v1 se lisent sans migration (test `version_1_files_are_read`).
+- Options géométriques sur le contrôleur (côté, prolongement, remplissage), options de canal sur l'influence (inversion et contraste d'image, symétrie et paliers d'angle, disparition aléatoire) : ADR-0006.
+- Aléatoire : Bridson à rayon variable, deux points au moins à la moyenne de leurs espacements locaux ; graine SplitMix64. Disparition aléatoire tirée par position (au micromètre) : une perforation garde son tirage quand le reste bouge.
+- Fibonacci à espacement variable : chaque point compte `√3/2 · s²` d'aire, le rayon suit l'aire cumulée ; densité juste à 3 % près (test), variation radiale seulement.
+- Hachures croisées refaites en treillis (fentes au milieu des arêtes) : la première version, deux familles décalées d'un demi-pas, superposait des fentes aux croisements (vu au rendu).
+- Images : luminance réduite à 200 px de côté au plus, en base64 dans le projet (≈ 40 Ko), décodée dans le moteur (décodeur base64 maison, sans dépendance).
+- Interface : le canevas édite des « éléments » (contrôleurs du canal, ou tracés de l'onglet Chemin) ; module `geometry.ts` pour les poignées, distances, déplacements et conversions ; calcul différé décidé sur le premier calcul du geste en cours (et non sur le dernier calcul, qui pouvait inclure une disposition lente).
+
+**Vérification.** 76 tests ; rendus Inkscape des cinq nouvelles dispositions ; parcours dans le navigateur (voir STATUS). Mesures natives : `cargo run --release -p fabvents-core --example bench -- projet.json`.
+
+**Défauts corrigés pendant la vérification.**
+- Points d'un anneau concentrique sous l'arc (polyligne) : ramenés sur le cercle exact.
+- Nombre de points le long d'un chemin sensible à l'arrondi (8 espacements donnaient 8 points au lieu de 9) : marge d'arrondi.
+- Image étirée par le redimensionnement de la plaque : elle suit désormais la plaque par son centre et garde ses proportions.
+- Libellés tronqués ou sur deux lignes (cible, départ, rotation, côté, nom de disposition).
+
+**Non fait.** Import dans LightBurn, FreeCAD et Fusion 360 ; découpe réelle.

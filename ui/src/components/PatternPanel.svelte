@@ -7,14 +7,28 @@
   import Segmented from './Segmented.svelte';
   import Disclosure from './Disclosure.svelte';
   import ShapeGlyph from './ShapeGlyph.svelte';
+  import LayoutPicker from './LayoutPicker.svelte';
+  import { Dices, Spline } from '@lucide/svelte';
   import { store } from '../lib/store.svelte';
   import { t } from '../lib/i18n.svelte';
   import { tip } from '../lib/tip';
   import type { EdgeMode, GridPattern, Outline, ShapeKind, ShapeType } from '../lib/types';
 
   const p = $derived(store.p);
-  const grid = $derived(p.layout);
+  const l = $derived(p.layout);
   const kind = $derived(p.shape.kind);
+
+  /** Champ de la disposition courante (le champ n'est montré que pour les modes qui l'ont). */
+  function setL(field: string, v: number | boolean) {
+    store.edit((q) => {
+      (q.layout as unknown as Record<string, unknown>)[field] = v;
+    }, `layout.${field}`);
+  }
+
+  function drawPath() {
+    store.setTab('path');
+    store.tool = 'curve';
+  }
 
   const SHAPES: ShapeType[] = ['circle', 'rectangle', 'polygon', 'star', 'slot'];
   const DEFAULT_KIND: Record<ShapeType, ShapeKind> = {
@@ -51,45 +65,100 @@
       />
     </Field>
     {#if p.plate.outline === 'rectangle'}
-      <NumField label={t('plate.width')} field="plate.width" min={0} value={p.plate.width} onchange={(v) => store.edit((q) => (q.plate.width = v), 'plate.width')} />
-      <NumField label={t('plate.height')} field="plate.height" min={0} value={p.plate.height} onchange={(v) => store.edit((q) => (q.plate.height = v), 'plate.height')} />
+      <NumField label={t('plate.width')} field="plate.width" min={0} value={p.plate.width} onchange={(v) => store.resizePlate(v, p.plate.height)} />
+      <NumField label={t('plate.height')} field="plate.height" min={0} value={p.plate.height} onchange={(v) => store.resizePlate(p.plate.width, v)} />
       <NumField label={t('plate.corner')} field="plate.corner_radius" min={0} value={p.plate.corner_radius} onchange={(v) => store.edit((q) => (q.plate.corner_radius = v), 'plate.corner')} />
     {:else}
-      <NumField label={t('plate.diameter')} field="plate.width" min={0} value={p.plate.width} onchange={(v) => store.edit((q) => (q.plate.width = v), 'plate.width')} />
+      <NumField label={t('plate.diameter')} field="plate.width" min={0} value={p.plate.width} onchange={(v) => store.resizePlate(v, p.plate.height)} />
     {/if}
+    <label class="check" use:tip={t('plate.scalePatternHint')}>
+      <input type="checkbox" bind:checked={store.scalePattern} />
+      {t('plate.scalePattern')}
+    </label>
     <NumField label={t('plate.margin')} hint={t('plate.marginHint')} field="plate.margin" min={0} value={p.plate.margin} onchange={(v) => store.edit((q) => (q.plate.margin = v), 'plate.margin')} />
     <NumField label={t('plate.thickness')} hint={t('plate.thicknessHint')} field="plate.thickness" min={0} value={p.plate.thickness} onchange={(v) => store.edit((q) => (q.plate.thickness = v), 'plate.thickness')} />
   </Section>
 
   <Section id="layout" title={t('layout.title')} step={2}>
     <Field label={t('layout.mode')}>
-      <select class="input select" aria-label={t('layout.mode')} value="grid">
-        <option value="grid">{t('layout.grid')}</option>
-      </select>
+      <LayoutPicker />
     </Field>
-    <Segmented
-      label={t('layout.pattern')}
-      value={grid.pattern}
-      options={[
-        { id: 'square', label: t('layout.square'), hint: t('layout.squareHint') },
-        { id: 'hexagonal', label: t('layout.hexagonal'), hint: t('layout.hexagonalHint') },
-        { id: 'staggered', label: t('layout.staggered'), hint: t('layout.staggeredHint') },
-      ]}
-      onchange={(v: GridPattern) => store.edit((q) => (q.layout.pattern = v))}
-    />
-    {#if grid.pattern === 'hexagonal'}
-      <NumField label={t('layout.pitch')} hint={t('layout.pitchHint')} field="layout.pitch_x" min={0} value={grid.pitch_x} onchange={(v) => store.edit((q) => (q.layout.pitch_x = v), 'layout.pitch_x')} />
-    {:else}
-      <NumField label={t('layout.pitchX')} hint={t('layout.pitchHint')} field="layout.pitch_x" min={0} value={grid.pitch_x} onchange={(v) => store.edit((q) => (q.layout.pitch_x = v), 'layout.pitch_x')} />
-      <NumField label={t('layout.pitchY')} field="layout.pitch_y" min={0} value={grid.pitch_y} onchange={(v) => store.edit((q) => (q.layout.pitch_y = v), 'layout.pitch_y')} />
+    {#if l.mode === 'grid'}
+      <Segmented
+        label={t('layout.pattern')}
+        value={l.pattern}
+        options={[
+          { id: 'square', label: t('layout.square'), hint: t('layout.squareHint') },
+          { id: 'hexagonal', label: t('layout.hexagonal'), hint: t('layout.hexagonalHint') },
+          { id: 'staggered', label: t('layout.staggered'), hint: t('layout.staggeredHint') },
+        ]}
+        onchange={(v: GridPattern) => setL('pattern', v as never)}
+      />
+      {#if l.pattern === 'hexagonal'}
+        <NumField label={t('layout.pitch')} hint={t('layout.pitchHint')} field="layout.pitch_x" min={0} value={l.pitch_x} onchange={(v) => setL('pitch_x', v)} />
+      {:else}
+        <NumField label={t('layout.pitchX')} hint={t('layout.pitchHint')} field="layout.pitch_x" min={0} value={l.pitch_x} onchange={(v) => setL('pitch_x', v)} />
+        <NumField label={t('layout.pitchY')} field="layout.pitch_y" min={0} value={l.pitch_y} onchange={(v) => setL('pitch_y', v)} />
+      {/if}
+      <NumField label={t('layout.angle')} kind="angle" field="layout.angle" value={l.angle} onchange={(v) => setL('angle', v)} />
+      <Disclosure id="layout.advanced" label={t('layout.advanced')}>
+        <NumField label={t('layout.offsetX')} field="layout.offset_x" value={l.offset_x} onchange={(v) => setL('offset_x', v)} />
+        <NumField label={t('layout.offsetY')} field="layout.offset_y" value={l.offset_y} onchange={(v) => setL('offset_y', v)} />
+        <NumField label={t('layout.rowTwist')} hint={t('layout.twistHint')} kind="angle" field="layout.row_twist" value={l.row_twist} onchange={(v) => setL('row_twist', v)} />
+        <NumField label={t('layout.colTwist')} kind="angle" field="layout.col_twist" value={l.col_twist} onchange={(v) => setL('col_twist', v)} />
+      </Disclosure>
+    {:else if l.mode === 'random'}
+      <NumField label={t('layout.spacing')} hint={t('layout.spacingHint')} field="layout.spacing" min={0} value={l.spacing} onchange={(v) => setL('spacing', v)} />
+      <Field label={t('layout.seed')} hint={t('layout.seedHint')}>
+        <span class="val tabular">{l.seed}</span>
+        <button class="btn quiet grow-right" type="button" use:tip={t('layout.reroll')} onclick={() => setL('seed', (l.seed % 99999) + 1)}><Dices size={14} /> {t('ctrl.rerollShort')}</button>
+      </Field>
+    {:else if l.mode === 'spiral'}
+      <NumField label={t('layout.turnPitch')} hint={t('layout.turnPitchHint')} field="layout.pitch" min={0} value={l.pitch} onchange={(v) => setL('pitch', v)} />
+      <NumField label={t('layout.spacingAlong')} hint={t('layout.spacingHint')} field="layout.spacing" min={0} value={l.spacing} onchange={(v) => setL('spacing', v)} />
+      <NumField label={t('layout.start')} field="layout.start" min={0} value={l.start} onchange={(v) => setL('start', v)} />
+      <Segmented
+        label={t('layout.direction')}
+        value={l.clockwise ? 'cw' : 'ccw'}
+        options={[
+          { id: 'ccw', label: t('layout.ccw') },
+          { id: 'cw', label: t('layout.cw') },
+        ]}
+        onchange={(v: 'cw' | 'ccw') => setL('clockwise', v === 'cw')}
+      />
+    {:else if l.mode === 'concentric'}
+      <NumField label={t('layout.ringPitch')} field="layout.pitch" min={0} value={l.pitch} onchange={(v) => setL('pitch', v)} />
+      <NumField label={t('layout.spacingAlong')} hint={t('layout.spacingHint')} field="layout.spacing" min={0} value={l.spacing} onchange={(v) => setL('spacing', v)} />
+      <NumField label={t('layout.start')} hint={t('layout.startHint')} field="layout.start" min={0} value={l.start} onchange={(v) => setL('start', v)} />
+      <NumField label={t('layout.phase')} hint={t('layout.phaseHint')} kind="angle" field="layout.phase" value={l.phase} onchange={(v) => setL('phase', v)} />
+    {:else if l.mode === 'fibonacci'}
+      <NumField label={t('layout.spacing')} hint={t('layout.spacingHint')} field="layout.spacing" min={0} value={l.spacing} onchange={(v) => setL('spacing', v)} />
+      <NumField label={t('layout.divergence')} hint={t('layout.divergenceHint')} kind="angle" decimals={3} field="layout.divergence" value={l.divergence} onchange={(v) => setL('divergence', v)} />
+    {:else if l.mode === 'cross_hatch'}
+      <NumField label={t('layout.step')} hint={t('layout.stepHint')} field="layout.step" min={0} value={l.step} onchange={(v) => setL('step', v)} />
+      <NumField label={t('layout.lineSpacing')} field="layout.line_spacing" min={0} value={l.line_spacing} onchange={(v) => setL('line_spacing', v)} />
+      <NumField label={t('layout.angle')} kind="angle" field="layout.angle" value={l.angle} onchange={(v) => setL('angle', v)} />
+      <NumField label={t('layout.cross')} hint={t('layout.crossHint')} kind="angle" field="layout.cross" value={l.cross} onchange={(v) => setL('cross', v)} />
+    {:else if l.mode === 'path'}
+      <NumField label={t('layout.spacingAlong')} hint={t('layout.spacingHint')} field="layout.spacing" min={0} value={l.spacing} onchange={(v) => setL('spacing', v)} />
+      <NumField label={t('layout.rows')} kind="count" field="layout.rows" min={1} max={50} value={l.rows} onchange={(v) => setL('rows', Math.round(v))} />
+      {#if l.rows > 1}
+        <NumField label={t('layout.rowGap')} field="layout.row_gap" min={0} value={l.row_gap} onchange={(v) => setL('row_gap', v)} />
+      {/if}
+      <button class="btn" type="button" onclick={drawPath}><Spline size={14} /> {l.paths.length ? t('layout.drawAnother') : t('layout.drawPath')}</button>
     {/if}
-    <NumField label={t('layout.angle')} kind="angle" field="layout.angle" value={grid.angle} onchange={(v) => store.edit((q) => (q.layout.angle = v), 'layout.angle')} />
-    <Disclosure id="layout.advanced" label={t('layout.advanced')}>
-      <NumField label={t('layout.offsetX')} field="layout.offset_x" value={grid.offset_x} onchange={(v) => store.edit((q) => (q.layout.offset_x = v), 'layout.offset_x')} />
-      <NumField label={t('layout.offsetY')} field="layout.offset_y" value={grid.offset_y} onchange={(v) => store.edit((q) => (q.layout.offset_y = v), 'layout.offset_y')} />
-      <NumField label={t('layout.rowTwist')} hint={t('layout.twistHint')} kind="angle" field="layout.row_twist" value={grid.row_twist} onchange={(v) => store.edit((q) => (q.layout.row_twist = v), 'layout.row_twist')} />
-      <NumField label={t('layout.colTwist')} kind="angle" field="layout.col_twist" value={grid.col_twist} onchange={(v) => store.edit((q) => (q.layout.col_twist = v), 'layout.col_twist')} />
-    </Disclosure>
+    {#if l.mode === 'spiral' || l.mode === 'concentric' || l.mode === 'path' || l.mode === 'fibonacci'}
+      <label class="check" use:tip={t(l.mode === 'fibonacci' ? 'layout.orientRadialHint' : 'layout.orientHint')}>
+        <input type="checkbox" checked={l.orient} onchange={(e) => setL('orient', (e.currentTarget as HTMLInputElement).checked)} />
+        {t(l.mode === 'fibonacci' ? 'layout.orientRadial' : 'layout.orient')}
+      </label>
+    {/if}
+    {#if l.mode === 'spiral' || l.mode === 'concentric' || l.mode === 'fibonacci' || l.mode === 'cross_hatch'}
+      <Disclosure id="layout.advanced" label={t('layout.advanced')}>
+        <NumField label={t('layout.offsetX')} hint={t('layout.offsetHint')} field="layout.offset_x" value={l.offset_x} onchange={(v) => setL('offset_x', v)} />
+        <NumField label={t('layout.offsetY')} field="layout.offset_y" value={l.offset_y} onchange={(v) => setL('offset_y', v)} />
+      </Disclosure>
+    {/if}
   </Section>
 
   <Section id="shape" title={t('shape.title')} step={3}>
@@ -165,18 +234,26 @@
     min-height: 0;
   }
 
-  .select {
-    width: 100%;
-    appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
-      linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
-    background-position:
-      calc(100% - 13px) 12px,
-      calc(100% - 9px) 12px;
-    background-size:
-      4px 4px,
-      4px 4px;
-    background-repeat: no-repeat;
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+  }
+
+  input[type='checkbox'] {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+
+  .val {
+    color: var(--text-primary);
+  }
+
+  .grow-right {
+    margin-left: auto;
   }
 
   .shapes {

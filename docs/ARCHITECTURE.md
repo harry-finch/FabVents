@@ -30,9 +30,12 @@ Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`). Mill
 | `geom` | `Vec2`, aires, distances point / segment / âme, arcs en *bulge*. |
 | `contour` | Contour exact : cercle, ou sommets avec arcs (*bulge*) ; contour d'une âme arrondie (somme de Minkowski) ; aire exacte ; facettisation à flèche donnée (ADR-0005). |
 | `plate` | Contour de la plaque : distance signée (zone perforable), contour exact, aire. |
-| `layout` | Dispositions → germes (position, angle propre). v0.1 : grille centrée sur la plaque. |
+| `layout` | Dispositions → germes (position, angle propre) : grille, aléatoire (Bridson à rayon variable), spirale, concentrique, Fibonacci, hachures croisées, chemin. Les dispositions à espacement libre lisent le canal Espacement. |
+| `curve` | Tracés : aplatissement à congés, subdivision, décalage parallèle, distance et côté (avec prolongement), placement à espacement variable le long d'un tracé. |
+| `raster` | Image d'un contrôleur : décodage base64, luminance bilinéaire en un point de la plaque. |
+| `rng` | Aléatoire reproductible (SplitMix64) et tirage attaché à une position. |
 | `shape` | Forme d'un trou à une taille et un angle donnés : âme, arrondi, rayon englobant, aire. |
-| `field` | Champs d'influence des contrôleurs, mélange pondéré par canal (ADR-0004). |
+| `field` | Contrôleurs préparés (tracés aplatis, image décodée) ; poids avec options (côté, prolongement, remplissage, image) ; mélange pondéré par canal, symétrie, paliers, bornes du canal, disparition aléatoire (ADR-0004, ADR-0006). |
 | `pipeline` | Calcul par étages avec cache (germes → trous → mesures) ; messages du calcul. |
 | `metrics` | Taux d'ouverture, tailles, nervures exactes et chevauchements (grille de répartition). |
 | `export` | `svg` (projet embarqué dans `<metadata>`), `dxf` (R12), lecture du projet d'un SVG (ADR-0003). |
@@ -44,8 +47,8 @@ Cycle d'un calcul :
 Project ─► validate ─► erreurs ? ─oui─► aucun trou, messages
                           │ non
                           ▼
-        germes (plaque, disposition)                    cache par égalité
-          ─► trous : zone (centre), taille (canal Taille), taille mini,
+        germes (plaque, disposition, contrôleurs d'espacement)   cache par égalité
+          ─► trous : zone (centre), taille (canal Taille), taille mini, disparition,
                      angle (canal Angle + disposition), forme, zone (trou entier)
           ─► mesures (trous, nervure mini)
           ─► Frame : trous, mesures, statistiques, messages
@@ -61,10 +64,10 @@ Svelte 5 (runes) + Vite + TypeScript, icônes `@lucide/svelte`, police Inter : m
 
 ```text
 ┌ Barre d'application : logo · Fichier · nom du projet · mm/pouces · FR/EN · thème · aide · Exporter ┐
-├ Motif (gauche) ──┬─ Outils · canal Taille / Angle · annuler · zoom ─┬─ Inspecteur (droite) ────┤
-│ 1 Plaque         │                                                  │ Contrôleur sélectionné   │
-│ 2 Disposition    │   Canevas : plaque, perforations, contrôleurs    │   ou canal affiché       │
-│ 3 Forme          │   du canal, poignées et portée                   │ Mesures                  │
+├ Motif (gauche) ──┬─ Canevas ─────────────────────────────────────────┬─ Inspecteur (droite) ────┤
+│ 1 Plaque         │   Outils : sélection, main, point, ligne,       │ Élément sélectionné      │
+│ 2 Disposition    │   courbe, image, règle ; onglets Taille,         │   ou canal affiché       │
+│ 3 Forme          │   Espacement, Angle, Chemin                      │ Mesures                  │
 │ 4 Bords          │                                                  │ Messages                 │
 │ 5 Fabrication    │                                                  │                          │
 ├──────────────────┴──────────────────────────────────────────────────┴──────────────────────────┤
@@ -74,10 +77,11 @@ Svelte 5 (runes) + Vite + TypeScript, icônes `@lucide/svelte`, police Inter : m
 
 - **État** : [store.svelte.ts](../ui/src/lib/store.svelte.ts). Toute modification passe par `edit()` (une étape d'annulation, fusionnée quand la même valeur change de suite) ou par un geste `begin()` … `end()` (glisser une poignée, faire défiler un libellé). Le projet est sauvegardé dans le navigateur 400 ms après chaque changement et repris au lancement.
 - **Moteur** : [engine.ts](../ui/src/lib/engine.ts) et [engine.worker.ts](../ui/src/lib/engine.worker.ts). Un seul calcul en cours ; si le projet change entre-temps, seul le plus récent est envoyé. Les tableaux de géométrie sont transférés sans copie.
-- **Canevas** : [Canvas.svelte](../ui/src/components/Canvas.svelte), Canvas 2D, un chemin par famille (cercles, polygones), redessiné à la trame suivante. Couleurs lues dans les jetons du thème. Recadrage automatique tant que l'utilisateur n'a pas touché à la vue.
+- **Canevas** : [Canvas.svelte](../ui/src/components/Canvas.svelte), Canvas 2D, un chemin par famille (cercles, polygones), redessiné à la trame suivante. Couleurs lues dans les jetons du thème. Recadrage automatique tant que l'utilisateur n'a pas touché à la vue. Il édite les **éléments** de l'onglet affiché (`store.items`) : contrôleurs du canal, ou tracés de la disposition Chemin. Poignées, distances, déplacements, conversions et mise à l'échelle : [geometry.ts](../ui/src/lib/geometry.ts) ; images : [image.ts](../ui/src/lib/image.ts) (réduction à 200 px, luminance en base64, rendu mis en cache) ; menu contextuel : [ContextMenu.svelte](../ui/src/components/ContextMenu.svelte).
+- **Calcul différé** : si le premier calcul d'un geste dépasse 60 ms, les suivants attendent le relâchement (`store.deferred`) ; la barre d'état le signale.
 - **Champs numériques** : [NumField.svelte](../ui/src/components/NumField.svelte), unités converties à l'affichage seulement, flèches, défilement par le libellé, soulignés en rouge quand le moteur signale une erreur sur leur champ.
 - **Langues** : `t('clé')`, [fr.ts](../ui/src/lib/locales/fr.ts) de référence, [en.ts](../ui/src/lib/locales/en.ts) vérifié par TypeScript ; messages du moteur rendus par [issues.ts](../ui/src/lib/issues.ts).
 
 ## Décisions
 
-Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005).
+Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006).

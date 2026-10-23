@@ -11,14 +11,18 @@
   import HelpDialog from './components/HelpDialog.svelte';
   import { store } from './lib/store.svelte';
   import { t } from './lib/i18n.svelte';
-  import { exportAs, openFile, pickFile } from './lib/files';
-  import type { Tool } from './lib/types';
+  import { exportAs, isImageFile, openFile, pickFile, pickImage } from './lib/files';
+  import { translate } from './lib/geometry';
+  import type { Tab, Tool } from './lib/types';
 
   // Recalcul à chaque changement du projet (le moteur garde en cache les
   // étages inchangés ; un seul calcul en cours, le plus récent gagne).
+  // Motif lourd : pendant un geste, le calcul attend le relâchement.
   $effect(() => {
     if (!store.project) return;
-    store.engine.compute(JSON.stringify(store.project));
+    const json = JSON.stringify(store.project);
+    if (store.deferred) return;
+    store.engine.compute(json);
   });
 
   // Sauvegarde automatique (reprise au prochain lancement).
@@ -27,12 +31,14 @@
     if (!store.project) return;
     void JSON.stringify(store.project);
     void store.units;
-    void store.channel;
+    void store.tab;
+    void store.scalePattern;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => store.persist(), 400);
   });
 
-  const TOOL_KEYS: Record<string, Tool> = { v: 'select', h: 'hand', p: 'point', l: 'line' };
+  const TOOL_KEYS: Record<string, Tool> = { v: 'select', h: 'hand', p: 'point', l: 'line', c: 'curve', r: 'ruler' };
+  const TAB_KEYS: Record<string, Tab> = { '1': 'size', '2': 'spacing', '3': 'angle', '4': 'path' };
 
   function typing(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null;
@@ -40,14 +46,10 @@
   }
 
   function nudge(dx: number, dy: number) {
-    const id = store.selected;
-    if (id == null) return;
-    store.edit((p) => {
-      const c = p.controllers.find((x) => x.id === id);
-      if (!c) return;
-      const mv = (v: { x: number; y: number }) => ({ x: Math.round((v.x + dx) * 100) / 100, y: Math.round((v.y + dy) * 100) / 100 });
-      c.geometry = c.geometry.type === 'point' ? { type: 'point', at: mv(c.geometry.at) } : { type: 'line', a: mv(c.geometry.a), b: mv(c.geometry.b) };
-    }, `nudge.${id}`);
+    const k = store.selection;
+    const g = store.selectedGeometry;
+    if (!k || !g) return;
+    store.setGeometry(k, translate(g, { x: dx, y: dy }), 'nudge');
   }
 
   function keydown(e: KeyboardEvent) {
@@ -78,17 +80,19 @@
       store.spacePan = true;
     } else if (TOOL_KEYS[k]) {
       store.tool = TOOL_KEYS[k];
+    } else if (k === 'i' && store.channel) {
+      pickImage();
     } else if (k === 'f') {
       store.fit();
-    } else if (k === '1' || k === '2') {
-      store.setChannel(k === '1' ? 'size' : 'angle');
-    } else if ((e.key === 'Delete' || e.key === 'Backspace') && store.selected != null) {
+    } else if (TAB_KEYS[k] && store.tabs.includes(TAB_KEYS[k])) {
+      store.setTab(TAB_KEYS[k]);
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && store.selection && store.tool !== 'curve') {
       e.preventDefault();
-      store.removeController(store.selected);
+      store.removeSelected();
     } else if (e.key === 'Escape') {
       if (store.tool !== 'select') store.tool = 'select';
-      else store.selected = null;
-    } else if (e.key.startsWith('Arrow') && store.selected != null) {
+      else store.select(null);
+    } else if (e.key.startsWith('Arrow') && store.selection) {
       e.preventDefault();
       const step = e.shiftKey ? 10 : 1;
       const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
@@ -113,7 +117,9 @@
     e.preventDefault();
     dropping = false;
     const f = e.dataTransfer?.files?.[0];
-    if (f) void openFile(f);
+    if (!f) return;
+    if (isImageFile(f)) void store.addImage(f);
+    else void openFile(f);
   }
 </script>
 

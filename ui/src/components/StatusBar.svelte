@@ -19,6 +19,10 @@
     <span class="tabular">{t('status.holes', { n: num(f.report.metrics.holes, 0) })}</span>
     <span class="sep"></span>
     <span class="tabular">{t('status.compute', { ms: num(f.ms, 1) })}</span>
+    {#if store.deferred}
+      <span class="sep"></span>
+      <span class="deferred">{t('status.deferred')}</span>
+    {/if}
   {/if}
   <span class="grow"></span>
   {#if store.cursor}
@@ -64,5 +68,9 @@
 
   .grow {
     flex: 1;
+  }
+
+  .deferred {
+    color: var(--warning);
   }
 </style>

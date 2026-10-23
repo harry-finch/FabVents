@@ -1,23 +1,33 @@
 <script lang="ts">
-  // Barre d'outils du canevas : outils (sélection, main, point, ligne), canal
-  // affiché (taille, angle), annuler / rétablir, zoom et cadrage.
-  import { Hand, Maximize, MousePointer2, Redo2, Slash, Undo2, ZoomIn, ZoomOut, Crosshair } from '@lucide/svelte';
+  // Barre d'outils du canevas : outils (sélection, main, point, ligne,
+  // courbe, image, règle), onglet affiché (canaux Taille, Espacement, Angle,
+  // et tracés du Chemin), annuler / rétablir, zoom et cadrage.
+  import { Hand, Maximize, MousePointer2, Redo2, Slash, Undo2, ZoomIn, ZoomOut, Crosshair, Spline, Image, Ruler } from '@lucide/svelte';
   import { store } from '../lib/store.svelte';
   import { t } from '../lib/i18n.svelte';
   import { tip } from '../lib/tip';
   import { pct } from '../lib/format';
-  import { CHANNELS, type Tool } from '../lib/types';
+  import { pickImage } from '../lib/files';
+  import type { Tab, Tool } from '../lib/types';
 
   const TOOLS: { id: Tool; icon: typeof Hand; key: string }[] = [
     { id: 'select', icon: MousePointer2, key: 'V' },
     { id: 'hand', icon: Hand, key: 'H' },
     { id: 'point', icon: Crosshair, key: 'P' },
     { id: 'line', icon: Slash, key: 'L' },
+    { id: 'curve', icon: Spline, key: 'C' },
   ];
 
-  const count = (ch: 'size' | 'angle') => store.project?.controllers.filter((c) => c[ch]).length ?? 0;
+  const count = (tab: Tab) => {
+    const p = store.project;
+    if (!p) return 0;
+    if (tab === 'path') return p.layout.mode === 'path' ? p.layout.paths.length : 0;
+    return p.controllers.filter((c) => c[tab]).length;
+  };
   // Zoom : 100 % = taille réelle à l'écran (96 px par pouce CSS).
   const zoomPct = $derived((store.view.scale / (96 / 25.4)) * 100);
+  const KEYS: Record<Tab, string> = { size: '1', spacing: '2', angle: '3', path: '4' };
+
 </script>
 
 <div class="bar" role="toolbar" aria-label={t('canvas.toolbar')}>
@@ -35,22 +45,40 @@
         onclick={() => (store.tool = tl.id)}><Icon size={16} /></button
       >
     {/each}
+    <button
+      type="button"
+      class="tool"
+      aria-label={t('canvas.tools.image')}
+      disabled={!store.channel}
+      use:tip={`${t('canvas.tools.image')} (I)\n${t('canvas.toolHints.image')}`}
+      onclick={pickImage}><Image size={16} /></button
+    >
+    <button
+      type="button"
+      role="radio"
+      class="tool"
+      class:on={store.tool === 'ruler'}
+      aria-checked={store.tool === 'ruler'}
+      aria-label={t('canvas.tools.ruler')}
+      use:tip={`${t('canvas.tools.ruler')} (R)\n${t('canvas.toolHints.ruler')}`}
+      onclick={() => (store.tool = 'ruler')}><Ruler size={16} /></button
+    >
   </div>
 
   <span class="sep"></span>
 
   <div class="channels" role="tablist" aria-label={t('canvas.channel')}>
-    {#each CHANNELS as ch, i (ch)}
+    {#each store.tabs as tab (tab)}
       <button
         type="button"
         role="tab"
-        aria-selected={store.channel === ch}
-        class:on={store.channel === ch}
-        use:tip={`${t(`channels.hint.${ch}`)} (${i + 1})`}
-        onclick={() => store.setChannel(ch)}
+        aria-selected={store.tab === tab}
+        class:on={store.tab === tab}
+        use:tip={`${t(`channels.hint.${tab}`)} (${KEYS[tab]})`}
+        onclick={() => store.setTab(tab)}
       >
-        {t(`channels.${ch}`)}
-        {#if count(ch)}<span class="count tabular">{count(ch)}</span>{/if}
+        {t(`channels.${tab}`)}
+        {#if count(tab)}<span class="count tabular">{count(tab)}</span>{/if}
       </button>
     {/each}
   </div>
@@ -79,6 +107,7 @@
     padding: 0 var(--s2);
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border);
+    min-width: 0;
   }
 
   .group {
@@ -123,7 +152,7 @@
     flex: 1;
   }
 
-  /* Canaux : onglets compacts, actif souligné. */
+  /* Onglets compacts, actif souligné. */
   .channels {
     display: flex;
     align-items: stretch;
@@ -143,6 +172,7 @@
     color: var(--text-muted);
     font-size: var(--fs-md);
     font-weight: 500;
+    white-space: nowrap;
   }
 
   .channels button:hover {

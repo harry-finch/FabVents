@@ -8,10 +8,14 @@ import type { Issue } from './types';
 /** Libellé du champ d'un message (`controllers.3.size.reach` → « Portée (taille) »). */
 export function fieldLabel(field: string | undefined): string {
   if (!field) return '';
-  const generic = field.replace(/^controllers\.\d+\./, 'controllers.');
-  const key = `fields.${generic}` as Key;
-  const text = t(key);
-  return text === key ? field : text;
+  // Sans les identifiants (`controllers.3.`, `layout.paths.0`), du plus précis au plus général.
+  const parts = field.replace(/^controllers\.\d+\./, 'controllers.').split('.').filter((x) => !/^\d+$/.test(x));
+  for (let n = parts.length; n > 0; n--) {
+    const key = `fields.${parts.slice(0, n).join('.')}` as Key;
+    const text = t(key);
+    if (text !== key && typeof text === 'string') return text;
+  }
+  return field;
 }
 
 /** Champs exprimés en longueur (pour formater la valeur d'un message). */

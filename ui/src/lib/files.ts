@@ -63,3 +63,18 @@ export function pickFile() {
   };
   input.click();
 }
+
+/** Choisit une image et l'ajoute comme contrôleur Image du canal affiché. */
+export function pickImage() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/jpeg,image/webp,image/gif,image/bmp';
+  input.onchange = () => {
+    const f = input.files?.[0];
+    if (f) void store.addImage(f);
+  };
+  input.click();
+}
+
+/** Fichier d'image (contrôleur) plutôt que projet ? Un SVG est toujours un projet. */
+export const isImageFile = (f: File) => f.type.startsWith('image/') && f.type !== 'image/svg+xml';

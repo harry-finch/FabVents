@@ -1,22 +1,25 @@
 # État du projet
 
-**Jalon** : **v0.1 — tranche verticale**, livrée pour essai (23/10/2026). Prochain jalon : v0.2 (dispositions et contrôleurs), voir [ROADMAP.md](ROADMAP.md).
+**Jalon** : **v0.2 — dispositions et contrôleurs**, livrée pour essai (23/10/2026). v0.1 validée par l'utilisateur. Prochain jalon : v0.3 (contours et découpe), voir [ROADMAP.md](ROADMAP.md).
 
 | Élément | État |
 | --- | --- |
-| Moteur | `fabvents-core` : grille carrée / hexagonale / quinconce, 5 formes (arcs exacts), contrôleurs Point et Ligne sur Taille et Angle, calcul par étages avec cache, mesures, exports SVG et DXF R12 |
-| Interface | Svelte 5, mêmes jetons et composants que FabSpeed ; canevas (zoom, déplacement, poignées, portée), annuler / rétablir, FR / EN, mm / pouces, thèmes |
-| Fichiers | Projet `.fabvents.json` versionné ; SVG rouvrable (projet embarqué) ; reprise automatique du dernier projet (navigateur) |
-| Tests | `cargo test --workspace` : 46 tests verts ; clippy : 0 avertissement ; `npm run check` : 0 erreur |
-| Vérifié | DXF audité par ezdxf (0 erreur, mm, calques) ; SVG et DXF rendus (Inkscape, ezdxf) identiques ; dans le navigateur : 29 000 trous calculés en 17 ms, rendu à 120 images/s, glisser fluide |
+| Dispositions | Grille, aléatoire (Poisson-disc à densité variable, graine), spirale, concentrique, Fibonacci, hachures croisées, chemin (rangées parallèles, congés) ; orientation selon le tracé |
+| Contrôleurs | Point, ligne, courbe (congés par nœud), cercle, ellipse, polygone régulier, image ; canaux Taille, Espacement, Angle ; côté unique, prolongement, intérieur rempli, angle symétrique et par paliers, disparition aléatoire, unification portée / cible |
+| Canevas | Outils Courbe et Règle, import d'image (bouton, `I`, glisser-déposer), nœuds (double-clic, Alt + clic), menu contextuel, conversion en forme exacte, onglet Chemin ; calcul différé au relâchement si le premier calcul d'un geste dépasse 60 ms |
+| Plaque | Contrôleurs et chemins suivent la plaque redimensionnée ; option « Mettre le motif à l'échelle » |
+| Fichiers | Format de projet v2 ; les projets v1 se lisent tels quels (test) |
+| Tests | `cargo test --workspace` : 76 tests verts ; clippy : 0 avertissement ; `npm run check` : 0 erreur ; `npm run build` |
+| Vérifié | Dans le navigateur : les sept dispositions, espacement local (aléatoire), courbe fermée remplie puis convertie en ellipse, image en dégradé, chemin à congés sur 3 rangées, fentes concentriques orientées, angle symétrique, règle, redimensionnement à l'échelle. Natif : 25 000 germes aléatoires en 66 ms, grille de 43 000 trous en 8 ms |
 | Non vérifié | Import réel dans LightBurn, FreeCAD, Fusion 360 ; découpe d'une pièce |
 
 ## Points ouverts
 
 - Couleur d'identité et logo : provisoires (vert chartreuse `#B5D93A`), à valider.
-- Taux d'ouverture surestimé quand des trous se chevauchent (signalé à l'écran) : calcul exact prévu avec la découpe au contour (v0.3).
-- Les contrôleurs gardent leur position absolue quand la plaque change de taille (redimensionnement proportionnel prévu en v0.2).
+- Fibonacci : l'espacement ne varie qu'avec la distance au centre (la spirale répartit chaque rayon sur tout le tour) ; un contrôleur d'espacement décentré a un effet diffus.
+- Taux d'ouverture surestimé quand des trous se chevauchent (signalé) : calcul exact en v0.3.
+- Motifs où tout se chevauche : la mesure des paires domine le calcul (≈ 140 ms pour 285 000 paires).
 
 ## Prochaine action
 
-Tester la v0.1 (liste de vérification dans le message de livraison), puis lancer la v0.2.
+Tester la v0.2 (liste dans le message de livraison), puis lancer la v0.3.

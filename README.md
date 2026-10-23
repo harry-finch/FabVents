@@ -1,10 +1,10 @@
 # FabVents
 
-Générateur de **motifs de perforation paramétriques** pour makers et fablabs : grilles de ventilation, grilles de haut-parleur, panneaux décoratifs. On règle une plaque, une disposition et une forme de trou, puis on pose des **contrôleurs** sur le canevas (points, lignes) qui font varier la taille ou l'angle des perforations. FabVents mesure ce qui compte avant la découpe (taux d'ouverture, nervure minimale, chevauchements) et exporte en **SVG** et **DXF** à l'échelle, en millimètres.
+Générateur de **motifs de perforation paramétriques** pour makers et fablabs : grilles de ventilation, grilles de haut-parleur, panneaux décoratifs. On règle une plaque, une disposition (grille, aléatoire, spirale, concentrique, Fibonacci, hachures croisées, chemin) et une forme de trou, puis on pose des **contrôleurs** sur le canevas (points, lignes, courbes, cercles, ellipses, polygones, images) qui font varier la taille, l'espacement ou l'angle des perforations. FabVents mesure ce qui compte avant la découpe (taux d'ouverture, nervure minimale, chevauchements) et exporte en **SVG** et **DXF** à l'échelle, en millimètres.
 
 Inspiré des fonctions de SolidVents, sans compte ni abonnement, dans le même écosystème que [FabSpeed](../FabSpeed) (même langage visuel, mêmes conventions).
 
-> État : **v0.1 en cours** (tranche verticale). Voir [STATUS.md](STATUS.md) et [ROADMAP.md](ROADMAP.md).
+> État : **v0.2** (dispositions et contrôleurs) livrée pour essai. Voir [STATUS.md](STATUS.md) et [ROADMAP.md](ROADMAP.md).
 
 ## Lancer
 
@@ -28,8 +28,8 @@ cd ui && npm run build && npm run preview
 
 ## Utiliser
 
-1. **À gauche** : plaque (rectangle à coins arrondis ou disque, marge), disposition (grille carrée, hexagonale, quinconce), forme (cercle, rectangle, polygone, étoile, fente), bords, seuils de fabrication.
-2. **Au centre** : choisir le canal (**Taille** ou **Angle**), poser un point (`P`) ou une ligne (`L`), glisser les poignées ; le carré du contrôleur sélectionné règle sa portée.
+1. **À gauche** : plaque (rectangle à coins arrondis ou disque, marge, mise à l'échelle du motif), disposition et ses réglages, forme (cercle, rectangle, polygone, étoile, fente), bords, seuils de fabrication.
+2. **Au centre** : choisir l'onglet (**Taille**, **Espacement**, **Angle**, ou **Chemin** pour la disposition Chemin), poser un point (`P`), une ligne (`L`), une courbe (`C`) ou une image (`I`), glisser les poignées ; le carré du contrôleur sélectionné règle sa portée ; clic droit pour le menu de l'élément, `R` pour la règle.
 3. **À droite** : réglages du contrôleur sélectionné, mesures du motif, messages.
 4. **Exporter** : SVG (le projet complet est embarqué : glisser le SVG sur la fenêtre le rouvre), DXF R12 (calques `CUT_INNER` / `CUT_OUTER`), projet `.fabvents.json`.
 
@@ -43,7 +43,7 @@ cargo clippy --workspace --all-targets
 cd ui && npm run check
 ```
 
-Exporter le projet d'exemple sans interface : `cargo run -p fabvents-core --example export -- <dossier>`.
+Exporter le projet d'exemple sans interface : `cargo run -p fabvents-core --example export -- <dossier>`. Temps de calcul par étage : `cargo run --release -p fabvents-core --example bench -- projet.json`.
 
 | Dossier | Rôle |
 | --- | --- |

@@ -10,13 +10,13 @@ Périmètre fonctionnel de FabVents, établi à partir de l'inventaire des fonct
 | --- | --- | --- | --- |
 | LAY-01 | Grille carrée, hexagonale (60°), quinconce ; pas, angle, décalage | v0.1 | fait |
 | LAY-02 | Rotation des formes par rangée / colonne (surface vrillée) | v0.1 | fait |
-| LAY-03 | Aléatoire : Poisson-disc à densité variable, graine reproductible | v0.2 | prévu |
-| LAY-04 | Spirale continue | v0.2 | prévu |
-| LAY-05 | Anneaux concentriques | v0.2 | prévu |
-| LAY-06 | Fibonacci (angle d'or 137,5°) | v0.2 | prévu |
-| LAY-07 | Hachures croisées (treillis de fentes) | v0.2 | prévu |
-| LAY-08 | Chemin : répétition le long d'un tracé | v0.2 | prévu |
-| LAY-09 | Orientation selon le chemin (concentrique, spirale, chemin) | v0.2 | prévu |
+| LAY-03 | Aléatoire : Poisson-disc à densité variable, graine reproductible | v0.2 | fait |
+| LAY-04 | Spirale continue | v0.2 | fait |
+| LAY-05 | Anneaux concentriques | v0.2 | fait |
+| LAY-06 | Fibonacci (angle d'or 137,5°) ; l'espacement y varie avec la distance au centre | v0.2 | fait |
+| LAY-07 | Hachures croisées : treillis de fentes au milieu des arêtes, matière aux croisements | v0.2 | fait |
+| LAY-08 | Chemin : répétition le long d'un tracé | v0.2 | fait |
+| LAY-09 | Orientation selon le chemin (concentrique, spirale, chemin) | v0.2 | fait |
 | LAY-10 | Voronoï : Lloyd, nervures variables, congés aux sommets | v0.5 | prévu |
 | LAY-11 | Lignes fluides : rubans d'épaisseur et de courbure variables | v0.5 | prévu |
 | LAY-12 | Disposition scriptée (« IA sur mesure ») avec curseurs déclarés | v0.7 | prévu |
@@ -33,15 +33,15 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | FLD-04 | Canal Angle | v0.1 | fait |
 | FLD-05 | Bord net (seuil franc au lieu d'un dégradé) | v0.1 | fait |
 | FLD-06 | Synchronisation : un même contrôleur sur plusieurs canaux | v0.1 | fait |
-| FLD-07 | Canal Espacement (densité) | v0.2 | prévu |
-| FLD-08 | Courbe / polyligne ouverte ou fermée, congés aux nœuds | v0.2 | prévu |
-| FLD-09 | Conversion d'un tracé en cercle, ellipse, polygone ; saisie aux cotes | v0.2 | prévu |
-| FLD-10 | Image (halftone) sur n'importe quel canal, inverser, contraste | v0.2 | prévu |
-| FLD-11 | Unifier la portée / la valeur cible d'un canal | v0.2 | prévu |
-| FLD-12 | Remplir l'intérieur d'une courbe fermée | v0.2 | prévu |
-| FLD-13 | Côté unique, extension infinie des extrémités | v0.2 | prévu |
-| FLD-14 | Disparition aléatoire (*cull*) : centre, bord ou uniforme, graine | v0.2 | prévu |
-| FLD-15 | Angle symétrique, angle par paliers | v0.2 | prévu |
+| FLD-07 | Canal Espacement (densité) | v0.2 | fait |
+| FLD-08 | Courbe / polyligne ouverte ou fermée, congés aux nœuds | v0.2 | fait |
+| FLD-09 | Conversion d'un tracé fermé en cercle, ellipse, polygone régulier ; saisie aux cotes (inspecteur) | v0.2 | fait |
+| FLD-10 | Image (halftone) sur n'importe quel canal, inverser, contraste | v0.2 | fait |
+| FLD-11 | Unifier la portée / la valeur cible d'un canal | v0.2 | fait |
+| FLD-12 | Remplir l'intérieur d'une courbe fermée | v0.2 | fait |
+| FLD-13 | Côté unique, extension infinie des extrémités | v0.2 | fait |
+| FLD-14 | Disparition aléatoire (*cull*) : centre, bord ou uniforme, graine | v0.2 | fait |
+| FLD-15 | Angle symétrique, angle par paliers | v0.2 | fait |
 | FLD-16 | Canal Forme (morphing) | v0.6 | prévu |
 
 ## Formes (SHP)
@@ -104,9 +104,9 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | UX-04 | Champs numériques : flèches (Maj × 10), glisser sur le libellé (Maj × 10, Alt ÷ 10) | v0.1 | fait |
 | UX-05 | Calcul dans un Web Worker, l'interface ne se fige jamais | v0.1 | fait |
 | UX-06 | FR / EN, mm / pouces, thème sombre / clair / système | v0.1 | fait |
-| UX-07 | Outil Règle | v0.2 | prévu |
-| UX-08 | Redimensionnement proportionnel du motif | v0.2 | prévu |
-| UX-09 | Calcul différé au relâchement pour les très grands motifs | v0.2 | prévu |
+| UX-07 | Outil Règle | v0.2 | fait |
+| UX-08 | Redimensionnement proportionnel du motif | v0.2 | fait |
+| UX-09 | Calcul différé au relâchement pour les très grands motifs | v0.2 | fait |
 | UX-10 | Application de bureau (Tauri) | v0.7 | prévu |
 | UX-11 | CLI et serveur MCP | v0.7 | prévu |
 
@@ -120,8 +120,8 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | Invalidation par étages (germes → instances → mesures) | Retenue | Cache par égalité des sous-configurations dans `Pipeline`, sans drapeaux à gérer côté interface. |
 | Atténuation *smoothstep* | Retenue | Continue, sans palier visible. |
 | Mélange `Max` / `Add` / `Multiply` des contrôleurs | Remplacée | Mélange pondéré vers la valeur cible (ADR-0004) : pas de dépassement, valeur de base loin des contrôleurs. |
-| PRNG Xorshift à graine | Retenue (v0.2) | Motifs reproductibles. |
-| Bridson à rayon variable | Retenue (v0.2) | Densité pilotée par le canal Espacement. |
+| PRNG à graine | Retenue (SplitMix64) | Motifs reproductibles ; tirage par position pour la disparition aléatoire (une perforation garde son tirage). |
+| Bridson à rayon variable | Retenue | Densité pilotée par le canal Espacement ; 25 000 germes en ~65 ms (natif). |
 | `i_overlay` | Retenue (v0.3) | Booléens 2D en Rust pur, compilable en WebAssembly. |
 | DXF AC1015 minimal | Remplacée par DXF R12 | Un AC1015 sans tables complètes ni identifiants est refusé par AutoCAD ; le R12 est lu partout (ADR-0003). |
 | STEP `EXTRUDED_AREA_SOLID` | Écartée | Entité de géométrie constructive peu lue par les importeurs AP214 ; B-Rep explicite à la place (v0.4). |

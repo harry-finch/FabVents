@@ -14,7 +14,7 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 
 ---
 
-## v0.1 — Tranche verticale (jalon 1) · *à tester* (livrée le 23/10/2026)
+## v0.1 — Tranche verticale (jalon 1) · *validée* (23/10/2026)
 
 **But** : dessiner une grille de ventilation à trous de taille variable et l'envoyer à la découpeuse laser, de bout en bout.
 
@@ -37,7 +37,7 @@ Critères d'acceptation :
 - Une grille 200 × 150 mm de ~2 000 trous se recalcule pendant le déplacement d'un contrôleur sans saccade visible.
 - Le DXF s'ouvre à la bonne échelle (mm) dans LightBurn, Inkscape et FreeCAD ; le SVG exporté puis rouvert redonne exactement le projet.
 
-## v0.2 — Dispositions et contrôleurs (jalon 2)
+## v0.2 — Dispositions et contrôleurs (jalon 2) · *à tester* (livrée le 23/10/2026)
 
 - Dispositions : **Aléatoire** (Poisson-disc à densité variable, graine), **Spirale**, **Concentrique**, **Fibonacci** (phyllotaxie), **Hachures croisées**, **Chemin** (répétition le long d'un tracé).
 - Orientation selon le chemin (concentrique, spirale, chemin).
