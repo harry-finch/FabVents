@@ -11,15 +11,17 @@
 //! let mut pipeline = Pipeline::new();
 //! let frame = pipeline.compute(&project);
 //! assert!(frame.metrics.open_ratio > 0.0);
-//! let dxf = export::dxf::dxf(&export::Drawing { project: &project, holes: frame.holes });
+//! let dxf = export::dxf::dxf(&export::Drawing::new(&project, &frame));
 //! assert!(dxf.contains("CIRCLE"));
 //! ```
 
+pub mod boolean;
 pub mod contour;
 pub mod curve;
 pub mod export;
 pub mod field;
 pub mod geom;
+pub mod import;
 pub mod issue;
 pub mod layout;
 pub mod metrics;
@@ -27,8 +29,10 @@ pub mod pipeline;
 pub mod plate;
 pub mod project;
 pub mod raster;
+pub mod region;
 pub mod rng;
 pub mod shape;
+pub mod templates;
 pub mod validate;
 
 pub use contour::{Contour, Vertex};

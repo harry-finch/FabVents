@@ -118,8 +118,8 @@ pub fn dxf(d: &Drawing) -> String {
 
     w.pair(0, "SECTION");
     w.pair(2, "ENTITIES");
-    for h in d.holes {
-        w.contour(LAYER_INNER, &h.contour());
+    for c in d.inner_contours() {
+        w.contour(LAYER_INNER, &c);
     }
     w.contour(LAYER_OUTER, &d.project.plate.contour());
     w.pair(0, "ENDSEC");
@@ -136,13 +136,7 @@ mod tests {
     fn export(p: &Project) -> (String, usize) {
         let mut pl = Pipeline::new();
         let f = pl.compute(p);
-        (
-            dxf(&Drawing {
-                project: p,
-                holes: f.holes,
-            }),
-            f.holes.len(),
-        )
+        (dxf(&Drawing::new(p, &f)), f.holes.len())
     }
 
     #[test]

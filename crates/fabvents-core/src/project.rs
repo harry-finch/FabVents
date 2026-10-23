@@ -7,13 +7,15 @@
 //!
 //! Versions : 1 (v0.1, grille, point et ligne, canaux Taille et Angle) ;
 //! 2 (v0.2, six dispositions de plus, courbes, formes, image, options des
-//! contrôleurs, canal Espacement). Un projet de version 1 se lit tel quel.
+//! contrôleurs, canal Espacement) ; 3 (v0.3, contours ellipse et
+//! personnalisé, zone perforée, trous de fixation et zones réservées,
+//! découpe au contour). Les versions précédentes se lisent telles quelles.
 
 use crate::geom::Vec2;
 use serde::{Deserialize, Serialize};
 
 pub const FORMAT: &str = "fabvents.project";
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -27,6 +29,9 @@ pub struct Project {
     pub edge: EdgeMode,
     pub fabrication: Fabrication,
     pub controllers: Vec<Controller>,
+    /// Trous de fixation et zones réservées.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<Feature>,
 }
 
 impl Default for Project {
@@ -41,6 +46,7 @@ impl Default for Project {
             edge: EdgeMode::Whole,
             fabrication: Fabrication::default(),
             controllers: Vec::new(),
+            features: Vec::new(),
         }
     }
 }
@@ -139,6 +145,10 @@ pub enum Outline {
     Rectangle,
     /// Disque de diamètre `width`.
     Circle,
+    /// Ellipse de `width` × `height`.
+    Ellipse,
+    /// Contour libre (`Plate::custom`), importé ou dessiné.
+    Custom,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -153,6 +163,62 @@ pub struct Plate {
     pub thickness: f64,
     /// Zone sans perforation le long du bord.
     pub margin: f64,
+    /// Contour libre (polygone dans `[0, width] × [0, height]`), pour `Outline::Custom`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub custom: Vec<Vec2>,
+    /// Zone perforée, en plus de la marge (toute la plaque par défaut).
+    #[serde(skip_serializing_if = "is_default")]
+    pub zone: Zone,
+}
+
+/// Zone où les perforations sont permises, dans la plaque.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Zone {
+    /// Toute la plaque, moins la marge.
+    #[default]
+    Plate,
+    Circle {
+        center: Vec2,
+        diameter: f64,
+    },
+    Rectangle {
+        center: Vec2,
+        width: f64,
+        height: f64,
+        #[serde(default)]
+        corner: f64,
+    },
+}
+
+/// Trou de fixation (découpé) ou zone réservée (pleine), et sa garde :
+/// aucune perforation à moins de `clearance` mm.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Feature {
+    pub id: u32,
+    pub shape: FeatureShape,
+    /// Découpé (trou de fixation, passage) ou laissé plein (zone réservée).
+    #[serde(default)]
+    pub cut: bool,
+    #[serde(default)]
+    pub clearance: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum FeatureShape {
+    Circle {
+        center: Vec2,
+        diameter: f64,
+    },
+    Rectangle {
+        center: Vec2,
+        width: f64,
+        height: f64,
+        #[serde(default)]
+        corner: f64,
+    },
+    Curve(Curve),
 }
 
 impl Default for Plate {
@@ -164,6 +230,8 @@ impl Default for Plate {
             corner_radius: 6.0,
             thickness: 3.0,
             margin: 6.0,
+            custom: Vec::new(),
+            zone: Zone::Plate,
         }
     }
 }
@@ -172,8 +240,8 @@ impl Plate {
     /// Dimensions de la boîte englobante (origine en bas à gauche).
     pub fn extent(&self) -> Vec2 {
         match self.outline {
-            Outline::Rectangle => Vec2::new(self.width, self.height),
             Outline::Circle => Vec2::new(self.width, self.width),
+            _ => Vec2::new(self.width, self.height),
         }
     }
 
@@ -498,6 +566,8 @@ pub enum EdgeMode {
     Center,
     /// Garde un trou seulement s'il est entièrement dans la zone perforable.
     Whole,
+    /// Coupe les trous au bord de la zone perforable (et des zones réservées).
+    Clip,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -781,6 +851,31 @@ mod tests {
         let p = Project::from_json(v1).unwrap();
         assert_eq!(p, Project::example());
         assert_eq!(p.version, VERSION);
+    }
+
+    #[test]
+    fn plate_features_roundtrip() {
+        let mut p = Project::example();
+        p.plate.zone = Zone::Circle {
+            center: Vec2::new(100.0, 75.0),
+            diameter: 120.0,
+        };
+        p.features.push(Feature {
+            id: 1,
+            shape: FeatureShape::Circle {
+                center: Vec2::new(10.0, 10.0),
+                diameter: 4.3,
+            },
+            cut: true,
+            clearance: 2.0,
+        });
+        p.edge = EdgeMode::Clip;
+        let json = p.to_json();
+        assert!(json.contains(r#""edge":"clip""#));
+        assert_eq!(Project::from_json(&json).unwrap(), p);
+        // Sans zone ni élément, rien n'est écrit.
+        let plain = Project::example().to_json();
+        assert!(!plain.contains("zone") && !plain.contains("features"));
     }
 
     #[test]

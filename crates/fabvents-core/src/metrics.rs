@@ -15,7 +15,8 @@ pub const BRIDGE_SEARCH_MIN: f64 = 5.0;
 pub struct Metrics {
     pub holes: usize,
     pub plate_area: f64,
-    /// Somme des aires des trous (surestimée en cas de chevauchement).
+    /// Surface ouverte : aire exacte des perforations, chevauchements
+    /// fusionnés et découpe au bord comprise.
     pub open_area: f64,
     /// Taux d'ouverture (%).
     pub open_ratio: f64,
@@ -29,16 +30,29 @@ pub struct Metrics {
     pub overlaps: usize,
     /// Paires séparées par une nervure plus fine que le minimum demandé.
     pub thin_bridges: usize,
+    /// Îlots de matière entièrement entourés par des perforations fusionnées
+    /// (ils tomberont à la découpe).
+    pub islands: usize,
 }
 
 pub fn measure(holes: &[Hole], plate_area: f64, min_bridge: f64) -> Metrics {
+    measure_with_overlaps(holes, plate_area, min_bridge).0
+}
+
+/// Mesures, et pour chaque trou : touche-t-il ou chevauche-t-il un voisin ?
+pub fn measure_with_overlaps(
+    holes: &[Hole],
+    plate_area: f64,
+    min_bridge: f64,
+) -> (Metrics, Vec<bool>) {
+    let mut overlapping = vec![false; holes.len()];
     let mut m = Metrics {
         holes: holes.len(),
         plate_area,
         ..Metrics::default()
     };
     if holes.is_empty() {
-        return m;
+        return (m, overlapping);
     }
     for h in holes {
         m.open_area += h.geom.area;
@@ -117,6 +131,8 @@ pub fn measure(holes: &[Hole], plate_area: f64, min_bridge: f64) -> Metrics {
                     };
                     if gap <= 1e-9 {
                         m.overlaps += 1;
+                        overlapping[i] = true;
+                        overlapping[j] = true;
                     } else {
                         best = best.min(gap);
                         if gap < min_bridge {
@@ -130,7 +146,7 @@ pub fn measure(holes: &[Hole], plate_area: f64, min_bridge: f64) -> Metrics {
     if best.is_finite() && best < search {
         m.bridge_min = Some(best);
     }
-    m
+    (m, overlapping)
 }
 
 #[cfg(test)]

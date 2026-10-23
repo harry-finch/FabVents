@@ -8,7 +8,9 @@
 pub mod dxf;
 pub mod svg;
 
-use crate::pipeline::Hole;
+use crate::boolean::Cut;
+use crate::contour::{Contour, Vertex};
+use crate::pipeline::{feature_region, Frame, Hole};
 use crate::project::{Project, ProjectError};
 
 /// Formatage compact d'une coordonnée : au plus `decimals` décimales, sans
@@ -53,6 +55,47 @@ pub fn project_from_svg(svg: &str) -> Option<Result<Project, ProjectError>> {
 pub struct Drawing<'a> {
     pub project: &'a Project,
     pub holes: &'a [Hole],
+    /// Trous remplacés par les découpes (vide : aucun).
+    pub complex: &'a [bool],
+    pub cuts: &'a [Cut],
+}
+
+impl<'a> Drawing<'a> {
+    pub fn new(project: &'a Project, frame: &Frame<'a>) -> Self {
+        Self {
+            project,
+            holes: frame.holes,
+            complex: frame.complex,
+            cuts: frame.cuts,
+        }
+    }
+
+    /// Contours à découper à l'intérieur de la plaque : trous exacts,
+    /// découpes (contour et îlots), trous de fixation.
+    pub fn inner_contours(&self) -> Vec<Contour> {
+        let path = |pts: &[crate::geom::Vec2]| {
+            Contour::Path(pts.iter().map(|&p| Vertex { p, bulge: 0.0 }).collect())
+        };
+        let mut out: Vec<Contour> = self
+            .holes
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !self.complex.get(*i).copied().unwrap_or(false))
+            .map(|(_, h)| h.contour())
+            .collect();
+        for c in self.cuts {
+            out.push(path(&c.outer));
+            out.extend(c.islands.iter().map(|i| path(i)));
+        }
+        out.extend(
+            self.project
+                .features
+                .iter()
+                .filter(|f| f.cut)
+                .map(|f| feature_region(f).contour()),
+        );
+        out
+    }
 }
 
 #[cfg(test)]

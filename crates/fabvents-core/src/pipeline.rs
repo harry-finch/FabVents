@@ -2,23 +2,38 @@
 //!
 //! ```text
 //! germes   (plaque, disposition, contrôleurs d'espacement)   ─┐
-//! trous    (germes, forme, contrôleurs, bords, taille mini)  ─┤ recalculé seulement
-//! mesures  (trous, nervure mini)                             ─┘ si ses entrées changent
+//! trous    (germes, forme, contrôleurs, bords, zone,          │
+//!           éléments, taille mini)                            ├ recalculé seulement
+//! mesures  (trous, nervure mini)                              │ si ses entrées changent
+//! découpe  (trous qui se chevauchent ou dépassent : booléens) ─┘
 //! ```
+//!
+//! Un trou isolé et entièrement dans la zone reste exact (cercle, arcs) ;
+//! seuls les trous qui se chevauchent, ou qui dépassent du bord en mode
+//! « découpe au contour », passent par les booléens et deviennent des
+//! polygones (`cuts`).
 //!
 //! Déplacer un contrôleur de taille ne relance pas la disposition ; changer
 //! la nervure minimale ne relance que les mesures.
 
+use crate::boolean::{cut, Cut};
 use crate::contour::Contour;
 use crate::field::Field;
 use crate::geom::Vec2;
 use crate::issue::{Issue, Severity};
 use crate::layout::{seeds, Seed};
-use crate::metrics::{measure, Metrics};
-use crate::project::{Channel, Controller, EdgeMode, Layout, Plate, Project, Shape};
+use crate::metrics::{measure_with_overlaps, Metrics};
+use crate::project::{
+    Channel, Controller, EdgeMode, Feature, FeatureShape, Layout, Plate, Project, Shape,
+};
+use crate::region::Region;
 use crate::shape::{hole_geometry, HoleGeometry};
 use crate::validate::validate;
 use serde::Serialize;
+
+/// Flèche des arcs des trous découpés (mm) : écart de contour négligeable,
+/// aire à 0,05 % près.
+const CUT_TOLERANCE: f64 = 0.002;
 
 /// Nombre maximal de perforations d'un motif.
 pub const MAX_HOLES: usize = 150_000;
@@ -49,11 +64,19 @@ pub struct Stats {
     pub removed_small: usize,
     /// Trous retirés par une disparition aléatoire.
     pub removed_cull: usize,
+    /// Trous retirés car trop près d'un trou de fixation ou d'une zone réservée.
+    pub removed_feature: usize,
+    /// Trous fusionnés ou coupés au bord (devenus des polygones).
+    pub merged: usize,
 }
 
 /// Résultat d'un calcul.
 pub struct Frame<'a> {
     pub holes: &'a [Hole],
+    /// Pour chaque trou : remplacé par les découpes (`cuts`).
+    pub complex: &'a [bool],
+    /// Perforations fusionnées ou coupées au bord.
+    pub cuts: &'a [Cut],
     pub metrics: Metrics,
     pub stats: Stats,
     pub issues: Vec<Issue>,
@@ -81,6 +104,7 @@ struct HolesKey {
     controllers: Vec<Controller>,
     edge: EdgeMode,
     min_size: f64,
+    features: Vec<Feature>,
 }
 
 #[derive(PartialEq)]
@@ -101,8 +125,13 @@ pub struct Pipeline {
     holes_gen: u64,
     metrics_key: Option<MetricsKey>,
     metrics: Metrics,
-    /// Étages recalculés au dernier appel (germes, trous, mesures).
-    pub last_runs: [bool; 3],
+    overlapping: Vec<bool>,
+    metrics_gen: u64,
+    cut_gen: u64,
+    complex: Vec<bool>,
+    cuts: Vec<Cut>,
+    /// Étages recalculés au dernier appel (germes, trous, mesures, découpe).
+    pub last_runs: [bool; 4],
 }
 
 impl Pipeline {
@@ -111,12 +140,14 @@ impl Pipeline {
     }
 
     pub fn compute(&mut self, p: &Project) -> Frame<'_> {
-        self.last_runs = [false; 3];
+        self.last_runs = [false; 4];
         let mut issues = validate(p);
         if issues.iter().any(|i| i.severity == Severity::Error) {
             self.invalidate();
             return Frame {
                 holes: &[],
+                complex: &[],
+                cuts: &[],
                 metrics: Metrics {
                     plate_area: p.plate.area(),
                     ..Metrics::default()
@@ -164,6 +195,8 @@ impl Pipeline {
             self.metrics_key = None;
             return Frame {
                 holes: &[],
+                complex: &[],
+                cuts: &[],
                 metrics: Metrics {
                     plate_area: p.plate.area(),
                     ..Metrics::default()
@@ -181,6 +214,7 @@ impl Pipeline {
             controllers: p.controllers.clone(),
             edge: p.edge,
             min_size: p.fabrication.min_size,
+            features: p.features.clone(),
         };
         if self.holes_key.as_ref() != Some(&key) {
             let (holes, stats) = build_holes(p, &self.seeds);
@@ -196,6 +230,8 @@ impl Pipeline {
             );
             return Frame {
                 holes: &[],
+                complex: &[],
+                cuts: &[],
                 metrics: Metrics {
                     plate_area: p.plate.area(),
                     ..Metrics::default()
@@ -211,10 +247,39 @@ impl Pipeline {
             min_bridge: p.fabrication.min_bridge,
         };
         if self.metrics_key.as_ref() != Some(&key) {
-            self.metrics = measure(&self.holes, p.plate.area(), p.fabrication.min_bridge);
+            let (m, overlapping) =
+                measure_with_overlaps(&self.holes, p.plate.area(), p.fabrication.min_bridge);
+            self.metrics = m;
+            self.overlapping = overlapping;
             self.metrics_key = Some(key);
+            self.metrics_gen += 1;
             self.last_runs[2] = true;
         }
+
+        // Étage 4 : découpe (fusion des chevauchements, coupe au bord).
+        if self.cut_gen != self.metrics_gen {
+            let (complex, cuts) = build_cuts(p, &self.holes, &self.overlapping);
+            self.complex = complex;
+            self.cuts = cuts;
+            self.cut_gen = self.metrics_gen;
+            self.last_runs[3] = true;
+        }
+        let simple_area: f64 = self
+            .holes
+            .iter()
+            .zip(&self.complex)
+            .filter(|(_, c)| !**c)
+            .map(|(h, _)| h.geom.area)
+            .sum();
+        let cut_area: f64 = self.cuts.iter().map(Cut::area).sum();
+        self.metrics.open_area = simple_area + cut_area;
+        self.metrics.open_ratio = if self.metrics.plate_area > 0.0 {
+            100.0 * self.metrics.open_area / self.metrics.plate_area
+        } else {
+            0.0
+        };
+        self.metrics.islands = self.cuts.iter().map(|c| c.islands.len()).sum();
+        self.stats.merged = self.complex.iter().filter(|c| **c).count();
 
         let m = &self.metrics;
         if matches!(&p.layout, Layout::Path(l) if l.paths.iter().all(|c| c.points.len() < 2)) {
@@ -230,8 +295,14 @@ impl Pipeline {
                     .field("fabrication.min_size"),
             );
         }
+        if self.stats.removed_feature > 0 {
+            issues.push(Issue::info("holes.removed_feature").count(self.stats.removed_feature));
+        }
         if m.overlaps > 0 {
-            issues.push(Issue::warning("holes.overlap").count(m.overlaps));
+            issues.push(Issue::info("holes.merged").count(m.overlaps));
+        }
+        if m.islands > 0 {
+            issues.push(Issue::warning("holes.islands").count(m.islands));
         }
         if m.thin_bridges > 0 {
             let mut i = Issue::warning("bridge.thin")
@@ -243,6 +314,8 @@ impl Pipeline {
 
         Frame {
             holes: &self.holes,
+            complex: &self.complex,
+            cuts: &self.cuts,
             metrics: self.metrics.clone(),
             stats: self.stats,
             issues,
@@ -253,6 +326,21 @@ impl Pipeline {
         self.seeds_key = None;
         self.holes_key = None;
         self.metrics_key = None;
+        self.cut_gen = u64::MAX;
+    }
+}
+
+/// Région d'un élément (trou de fixation, zone réservée).
+pub fn feature_region(f: &Feature) -> Region {
+    match &f.shape {
+        FeatureShape::Circle { center, diameter } => Region::circle(*center, diameter / 2.0),
+        FeatureShape::Rectangle {
+            center,
+            width,
+            height,
+            corner,
+        } => Region::rounded_rect(*center, *width, *height, *corner),
+        FeatureShape::Curve(c) => Region::polygon(crate::curve::flatten(c, 0.02)),
     }
 }
 
@@ -261,13 +349,25 @@ fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
     let size_field = field.channel(Channel::Size);
     let angle_field = field.channel(Channel::Angle);
     let margin = p.plate.margin;
+    let plate = p.plate.region();
+    let zone = p.plate.zone_region();
+    let features: Vec<(Region, f64)> = p
+        .features
+        .iter()
+        .map(|f| (feature_region(f), f.clearance))
+        .collect();
+    let clip = p.edge == EdgeMode::Clip;
     let mut stats = Stats {
         seeds: seeds.len(),
         ..Stats::default()
     };
     let mut holes = Vec::with_capacity(seeds.len());
     for s in seeds {
-        if p.plate.sdf(s.pos) > -margin {
+        // Tri rapide sur le centre : en découpe au bord, on garde tout centre
+        // assez proche pour que le trou entre dans la zone.
+        let reach = if clip { p.shape.size } else { 0.0 };
+        if plate.sdf(s.pos) > reach - margin || zone.as_ref().is_some_and(|z| z.sdf(s.pos) > reach)
+        {
             stats.removed_edge += 1;
             continue;
         }
@@ -282,14 +382,34 @@ fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
         }
         let angle = angle_field.value(p.shape.rotation, s.pos) + s.angle;
         let geom = hole_geometry(&p.shape, size, angle, s.pos);
-        if p.edge == EdgeMode::Whole
-            && geom
-                .core
+        if clip {
+            // Hors de la zone, ou entièrement dans une zone réservée : rien à découper.
+            if plate.sdf(s.pos) > geom.bound - margin
+                || zone.as_ref().is_some_and(|z| z.sdf(s.pos) > geom.bound)
+                || features
+                    .iter()
+                    .any(|(r, c)| r.sdf(s.pos) < -(geom.bound + c))
+            {
+                stats.removed_edge += 1;
+                continue;
+            }
+        } else {
+            if p.edge == EdgeMode::Whole
+                && (!plate.fits(&geom.core, geom.round, margin)
+                    || zone
+                        .as_ref()
+                        .is_some_and(|z| !z.fits(&geom.core, geom.round, 0.0)))
+            {
+                stats.removed_edge += 1;
+                continue;
+            }
+            if features
                 .iter()
-                .any(|&v| p.plate.sdf(v) > -(margin + geom.round))
-        {
-            stats.removed_edge += 1;
-            continue;
+                .any(|(r, c)| r.gap(&geom.core, geom.round) < *c)
+            {
+                stats.removed_feature += 1;
+                continue;
+            }
         }
         holes.push(Hole {
             center: s.pos,
@@ -301,13 +421,61 @@ fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
     (holes, stats)
 }
 
+/// Trous à fusionner ou à couper, et leurs découpes.
+fn build_cuts(p: &Project, holes: &[Hole], overlapping: &[bool]) -> (Vec<bool>, Vec<Cut>) {
+    let clip = p.edge == EdgeMode::Clip;
+    let plate = p.plate.region();
+    let zone = p.plate.zone_region();
+    let features: Vec<(Region, f64)> = p
+        .features
+        .iter()
+        .map(|f| (feature_region(f), f.clearance))
+        .collect();
+    let complex: Vec<bool> = holes
+        .iter()
+        .zip(overlapping)
+        .map(|(h, &o)| {
+            o || (clip
+                && (!plate.fits(&h.geom.core, h.geom.round, p.plate.margin)
+                    || zone
+                        .as_ref()
+                        .is_some_and(|z| !z.fits(&h.geom.core, h.geom.round, 0.0))
+                    || features
+                        .iter()
+                        .any(|(r, c)| r.gap(&h.geom.core, h.geom.round) < *c)))
+        })
+        .collect();
+    if !complex.iter().any(|c| *c) {
+        return (complex, Vec::new());
+    }
+    let polys: Vec<Vec<crate::geom::Vec2>> = holes
+        .iter()
+        .zip(&complex)
+        .filter(|(_, c)| **c)
+        .map(|(h, _)| h.contour().tessellated(CUT_TOLERANCE))
+        .collect();
+    let (area, keepouts) = if clip {
+        let k = features
+            .iter()
+            .map(|(r, c)| r.inflated(*c).contour().tessellated(0.01))
+            .collect();
+        (p.plate.perforable(), k)
+    } else {
+        // Seulement des chevauchements : la plaque elle-même borne la fusion.
+        (vec![p.plate.contour().tessellated(0.01)], Vec::new())
+    };
+    let cuts = cut(&polys, &area, &keepouts);
+    (complex, cuts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::project::{
         Concentric, CrossHatch, Cull, CullMode, Curve, Fibonacci, Geometry, Grid, GridPattern,
-        Influence, PathLayout, Random, Spiral,
+        Influence, PathLayout, Random, Spiral, Zone,
     };
+    use std::f64::consts::PI;
 
     fn square(pitch: f64) -> Project {
         Project {
@@ -345,17 +513,17 @@ mod tests {
         let mut p = Project::example();
         let mut pl = Pipeline::new();
         pl.compute(&p);
-        assert_eq!(pl.last_runs, [true, true, true]);
+        assert_eq!(pl.last_runs, [true, true, true, true]);
         pl.compute(&p);
-        assert_eq!(pl.last_runs, [false, false, false]);
+        assert_eq!(pl.last_runs, [false, false, false, false]);
         if let Geometry::Point { at } = &mut p.controllers[0].geometry {
             at.x += 5.0;
         }
         pl.compute(&p);
-        assert_eq!(pl.last_runs, [false, true, true]);
+        assert_eq!(pl.last_runs, [false, true, true, true]);
         p.fabrication.min_bridge = 2.0;
         pl.compute(&p);
-        assert_eq!(pl.last_runs, [false, false, true]);
+        assert_eq!(pl.last_runs, [false, false, true, true]);
     }
 
     #[test]
@@ -508,5 +676,101 @@ mod tests {
         let share = culled as f64 / (kept + culled) as f64;
         assert!((share - 0.4).abs() < 0.03, "{share}");
         assert_eq!(Pipeline::new().compute(&p).stats.removed_cull, culled);
+    }
+
+    #[test]
+    fn clip_mode_cuts_holes_at_the_edge_with_exact_area() {
+        // Plaque 100 × 100 sans marge, trous de 6 mm au pas de 10 alignés sur le bord :
+        // les 40 trous du bord sont coupés (demi- ou quart de disque).
+        let mut p = square(10.0);
+        p.shape.size = 6.0;
+        p.edge = EdgeMode::Clip;
+        let mut pl = Pipeline::new();
+        let f = pl.compute(&p);
+        assert_eq!(f.holes.len(), 121);
+        assert_eq!(f.complex.iter().filter(|c| **c).count(), 40);
+        let disc = PI * 9.0;
+        let expected = 81.0 * disc + 36.0 * disc / 2.0 + 4.0 * disc / 4.0;
+        assert!(
+            (f.metrics.open_area / expected - 1.0).abs() < 5e-4,
+            "{} / {expected}",
+            f.metrics.open_area
+        );
+        assert_eq!(f.cuts.len(), 40);
+    }
+
+    #[test]
+    fn overlaps_are_merged_and_counted_once() {
+        let mut p = square(4.0);
+        p.shape.size = 5.0;
+        p.edge = EdgeMode::Whole;
+        let mut pl = Pipeline::new();
+        let f = pl.compute(&p);
+        // Tous les trous se chevauchent : une seule grande découpe en forme de grille.
+        assert!(f.complex.iter().all(|c| *c));
+        let sum: f64 = f.holes.iter().map(|h| h.geom.area).sum();
+        assert!(f.metrics.open_area < sum);
+        assert!(
+            f.metrics.islands > 0,
+            "chaque maille entoure un îlot de matière"
+        );
+        assert!(f.issues.iter().any(|i| i.code == "holes.islands"));
+    }
+
+    #[test]
+    fn zone_and_mounting_holes_restrict_holes() {
+        let mut p = square(5.0);
+        p.shape.size = 2.0;
+        p.plate.zone = Zone::Circle {
+            center: Vec2::new(50.0, 50.0),
+            diameter: 60.0,
+        };
+        let mut pl = Pipeline::new();
+        let n_zone = pl.compute(&p).holes.len();
+        assert!(pl
+            .compute(&p)
+            .holes
+            .iter()
+            .all(|h| h.center.distance(Vec2::new(50.0, 50.0)) <= 29.0));
+        p.features.push(Feature {
+            id: 1,
+            shape: FeatureShape::Circle {
+                center: Vec2::new(50.0, 50.0),
+                diameter: 10.0,
+            },
+            cut: true,
+            clearance: 3.0,
+        });
+        let f = pl.compute(&p);
+        assert!(f.holes.len() < n_zone);
+        assert!(f.stats.removed_feature > 0);
+        // Aucune perforation à moins de 3 mm du trou de fixation.
+        assert!(f
+            .holes
+            .iter()
+            .all(|h| h.center.distance(Vec2::new(50.0, 50.0)) - 1.0 - 5.0 >= 3.0 - 1e-9));
+    }
+
+    #[test]
+    fn clip_mode_subtracts_reserved_zones() {
+        let mut p = square(10.0);
+        p.shape.size = 8.0;
+        p.edge = EdgeMode::Clip;
+        let mut pl = Pipeline::new();
+        let base = pl.compute(&p).metrics.open_area;
+        p.features.push(Feature {
+            id: 1,
+            shape: FeatureShape::Rectangle {
+                center: Vec2::new(50.0, 50.0),
+                width: 30.0,
+                height: 30.0,
+                corner: 0.0,
+            },
+            cut: false,
+            clearance: 0.0,
+        });
+        let f = pl.compute(&p);
+        assert!(f.metrics.open_area < base);
+        assert!(!f.cuts.is_empty());
     }
 }

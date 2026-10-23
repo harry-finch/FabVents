@@ -17,10 +17,7 @@ fn main() {
     for i in &frame.issues {
         eprintln!("{:?} {} {:?}", i.severity, i.code, i.count);
     }
-    let d = export::Drawing {
-        project: &project,
-        holes: frame.holes,
-    };
+    let d = export::Drawing::new(&project, &frame);
     std::fs::create_dir_all(&dir).expect("dossier");
     std::fs::write(dir.join("fabvents.svg"), export::svg::svg(&d)).expect("svg");
     std::fs::write(dir.join("fabvents.dxf"), export::dxf::dxf(&d)).expect("dxf");

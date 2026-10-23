@@ -25,6 +25,8 @@ pub struct Drawing {
     poly_points: Vec<f64>,
     poly_offsets: Vec<u32>,
     outline: Vec<f64>,
+    zone_points: Vec<f64>,
+    zone_offsets: Vec<u32>,
     report: String,
 }
 
@@ -48,6 +50,16 @@ impl Drawing {
     /// Contour de la plaque : `x, y` à la suite.
     pub fn take_outline(&mut self) -> Vec<f64> {
         std::mem::take(&mut self.outline)
+    }
+
+    /// Contours de la zone perforable : `x, y` à la suite.
+    pub fn take_zone_points(&mut self) -> Vec<f64> {
+        std::mem::take(&mut self.zone_points)
+    }
+
+    /// Début de chaque contour de zone dans `zone_points`, plus la fin.
+    pub fn take_zone_offsets(&mut self) -> Vec<u32> {
+        std::mem::take(&mut self.zone_offsets)
     }
 
     /// Mesures, statistiques et messages (JSON).
@@ -90,14 +102,26 @@ impl Engine {
         let mut circles = Vec::new();
         let mut poly_points = Vec::new();
         let mut poly_offsets = vec![0u32];
-        for h in frame.holes {
-            match h.contour() {
+        let add =
+            |c: Contour, circles: &mut Vec<f64>, pts: &mut Vec<f64>, off: &mut Vec<u32>| match c {
                 Contour::Circle { center, radius } => circles.extend([center.x, center.y, radius]),
                 c => {
-                    push_points(&mut poly_points, &c);
-                    poly_offsets.push((poly_points.len() / 2) as u32);
+                    push_points(pts, &c);
+                    off.push((pts.len() / 2) as u32);
                 }
+            };
+        // Trous exacts, découpes (contours et îlots : remplissage pair-impair),
+        // trous de fixation.
+        for c in export::Drawing::new(&project, &frame).inner_contours() {
+            add(c, &mut circles, &mut poly_points, &mut poly_offsets);
+        }
+        let mut zone_points = Vec::new();
+        let mut zone_offsets = vec![0u32];
+        for c in project.plate.perforable() {
+            for p in c {
+                zone_points.extend([p.x, p.y]);
             }
+            zone_offsets.push((zone_points.len() / 2) as u32);
         }
         let mut outline = Vec::new();
         push_points(&mut outline, &project.plate.contour());
@@ -113,6 +137,8 @@ impl Engine {
             poly_points,
             poly_offsets,
             outline,
+            zone_points,
+            zone_offsets,
             report,
         })
     }
@@ -127,10 +153,7 @@ impl Engine {
         if frame.has_errors() {
             return Err(JsError::new("export.invalid_project"));
         }
-        Ok(f(&export::Drawing {
-            project: &project,
-            holes: frame.holes,
-        }))
+        Ok(f(&export::Drawing::new(&project, &frame)))
     }
 
     pub fn export_svg(&mut self, project_json: &str) -> Result<String, JsError> {
@@ -158,6 +181,33 @@ pub fn read_project(text: &str) -> Result<String, JsError> {
     project
         .map(|p| p.to_json())
         .map_err(|e| JsError::new(e.code()))
+}
+
+/// Contour importé d'un SVG ou d'un DXF : `{ outer, inner, width, height }`
+/// (points `{x, y}` en mm, coin bas gauche à l'origine).
+#[wasm_bindgen]
+pub fn import_outline(text: &str) -> Result<String, JsError> {
+    let r = fabvents_core::import::import_outline(text).map_err(|e| JsError::new(e.code()))?;
+    let pts = |c: &[fabvents_core::Vec2]| {
+        c.iter()
+            .map(|p| json!({ "x": p.x, "y": p.y }))
+            .collect::<Vec<_>>()
+    };
+    Ok(json!({
+        "outer": pts(&r.outer),
+        "inner": r.inner.iter().map(|c| pts(c)).collect::<Vec<_>>(),
+        "width": r.width,
+        "height": r.height,
+    })
+    .to_string())
+}
+
+/// Gabarit de grille de ventilateur (40, 60, 80, 92, 120 ou 140 mm).
+#[wasm_bindgen]
+pub fn fan_template(size: u32) -> Result<String, JsError> {
+    fabvents_core::templates::fan_grill(size)
+        .map(|p| p.to_json())
+        .ok_or_else(|| JsError::new("template.unknown_size"))
 }
 
 /// Projet vide (plaque et grille par défaut, aucun contrôleur).
@@ -195,7 +245,22 @@ mod tests {
             report["metrics"]["holes"].as_u64().unwrap() as usize,
             circles.len() / 3
         );
-        assert_eq!(report["stages"], serde_json::json!([true, true, true]));
+        assert_eq!(
+            report["stages"],
+            serde_json::json!([true, true, true, true])
+        );
+        assert_eq!(d.take_zone_offsets().len(), 2);
+    }
+
+    #[test]
+    fn templates_and_import_are_exposed() {
+        let p = Project::from_json(&fan_template(120).unwrap()).unwrap();
+        assert_eq!(p.features.len(), 4);
+        let mut e = Engine::new();
+        let svg = e.export_svg(&p.to_json()).unwrap();
+        let imported: serde_json::Value =
+            serde_json::from_str(&import_outline(&svg).unwrap()).unwrap();
+        assert!((imported["width"].as_f64().unwrap() - 120.0).abs() < 1e-3);
     }
 
     #[test]

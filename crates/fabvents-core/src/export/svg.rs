@@ -53,8 +53,8 @@ pub fn svg(d: &Drawing) -> String {
         s,
         r#"  <g id="cut-inner" fill="none" stroke="{COLOR_INNER}" stroke-width="0.1">"#
     );
-    for hole in d.holes {
-        contour(&mut s, &hole.contour(), h);
+    for c in d.inner_contours() {
+        contour(&mut s, &c, h);
     }
     let _ = writeln!(s, "  </g>");
     s.push_str("</svg>\n");
@@ -119,10 +119,7 @@ mod tests {
         p.name = "Grille <test> ]]> & co".into();
         let mut pl = Pipeline::new();
         let f = pl.compute(&p);
-        let out = svg(&Drawing {
-            project: &p,
-            holes: f.holes,
-        });
+        let out = svg(&Drawing::new(&p, &f));
         assert!(out.contains(r#"width="200mm""#));
         assert!(out.contains("&lt;test&gt;"));
         let back = project_from_svg(&out).unwrap().unwrap();
@@ -134,17 +131,12 @@ mod tests {
         let mut p = Project::example();
         let mut pl = Pipeline::new();
         let n = pl.compute(&p).holes.len();
-        let out = svg(&Drawing {
-            project: &p,
-            holes: pl.compute(&p).holes,
-        });
+        let f = pl.compute(&p);
+        let out = svg(&Drawing::new(&p, &f));
         assert_eq!(out.matches("<circle").count(), n);
         p.shape.kind = ShapeKind::Slot { aspect: 0.4 };
         let f = pl.compute(&p);
-        let out = svg(&Drawing {
-            project: &p,
-            holes: f.holes,
-        });
+        let out = svg(&Drawing::new(&p, &f));
         assert!(out.contains("A"));
         assert_eq!(out.matches("<path").count(), f.holes.len() + 1);
     }

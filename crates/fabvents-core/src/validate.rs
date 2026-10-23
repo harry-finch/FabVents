@@ -5,7 +5,8 @@
 use crate::geom::Vec2;
 use crate::issue::Issue;
 use crate::project::{
-    Curve, Geometry, GridPattern, Influence, Layout, Outline, Project, ShapeKind,
+    Curve, FeatureShape, Geometry, GridPattern, Influence, Layout, Outline, Project, ShapeKind,
+    Zone,
 };
 use crate::raster::Luma;
 
@@ -19,8 +20,56 @@ pub fn validate(p: &Project) -> Vec<Issue> {
     // Plaque.
     let pl = &p.plate;
     positive(pl.width, "plate.width", &mut out);
-    if pl.outline == Outline::Rectangle {
+    if pl.outline != Outline::Circle {
         positive(pl.height, "plate.height", &mut out);
+    }
+    if pl.outline == Outline::Custom && pl.custom.len() < 3 {
+        out.push(Issue::error("plate.custom_missing", "plate.outline").count(pl.custom.len()));
+    }
+    match &pl.zone {
+        Zone::Plate => {}
+        Zone::Circle { center, diameter } => {
+            point(*center, "plate.zone", &mut out);
+            positive(*diameter, "plate.zone.diameter", &mut out);
+        }
+        Zone::Rectangle {
+            center,
+            width,
+            height,
+            corner,
+        } => {
+            point(*center, "plate.zone", &mut out);
+            positive(*width, "plate.zone.width", &mut out);
+            positive(*height, "plate.zone.height", &mut out);
+            non_negative(*corner, "plate.zone.corner", &mut out);
+        }
+    }
+    for f in &p.features {
+        let base = format!("features.{}", f.id);
+        non_negative(f.clearance, &format!("{base}.clearance"), &mut out);
+        match &f.shape {
+            FeatureShape::Circle { center, diameter } => {
+                point(*center, &base, &mut out);
+                positive(*diameter, &format!("{base}.diameter"), &mut out);
+            }
+            FeatureShape::Rectangle {
+                center,
+                width,
+                height,
+                corner,
+            } => {
+                point(*center, &base, &mut out);
+                positive(*width, &format!("{base}.width"), &mut out);
+                positive(*height, &format!("{base}.height"), &mut out);
+                non_negative(*corner, &format!("{base}.corner"), &mut out);
+            }
+            FeatureShape::Curve(c) => {
+                curve(c, &base, &mut out);
+                if !c.closed {
+                    out.push(Issue::error("controller.curve_too_short", base.clone()).count(0));
+                }
+            }
+        }
     }
     positive(pl.thickness, "plate.thickness", &mut out);
     non_negative(pl.margin, "plate.margin", &mut out);
