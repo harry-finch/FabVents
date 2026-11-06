@@ -282,6 +282,24 @@
   <Section id="fabrication" title={t('fab.title')} step={5}>
     <NumField label={t('fab.minSize')} hint={t('fab.minSizeHint')} field="fabrication.min_size" min={0} value={p.fabrication.min_size} onchange={(v) => store.edit((q) => (q.fabrication.min_size = v), 'fab.min_size')} />
     <NumField label={t('fab.minBridge')} hint={t('fab.minBridgeHint')} field="fabrication.min_bridge" min={0} value={p.fabrication.min_bridge} onchange={(v) => store.edit((q) => (q.fabrication.min_bridge = v), 'fab.min_bridge')} />
+    <p class="sub">{t('fab.step')}</p>
+    <NumField label={t('fab.draft')} hint={t('fab.draftHint')} field="fabrication.draft" kind="angle" step={0.5} value={p.fabrication.draft ?? 0} onchange={(v) => store.edit((q) => (q.fabrication.draft = v), 'fab.draft')} />
+    {#each [0, 1] as axis (axis)}
+      <NumField
+        label={t(axis === 0 ? 'fab.tilesX' : 'fab.tilesY')}
+        hint={t('fab.tilesHint')}
+        field={axis === 0 ? 'fabrication.tiles_x' : 'fabrication.tiles_y'}
+        kind="count"
+        min={1}
+        value={(p.fabrication.tiles ?? [1, 1])[axis]}
+        onchange={(v) =>
+          store.edit((q) => {
+            const tiles: [number, number] = [...(q.fabrication.tiles ?? [1, 1])];
+            tiles[axis] = Math.round(v);
+            q.fabrication.tiles = tiles;
+          }, `fab.tiles${axis}`)}
+      />
+    {/each}
   </Section>
 </aside>
 

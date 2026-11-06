@@ -1,61 +1,96 @@
 //! Tracés : aplatissement d'une polyligne à congés, distance et côté,
 //! subdivision, décalage parallèle, placement de points à espacement variable.
 
+use crate::contour::{Contour, Vertex};
 use crate::geom::{arc_segments, Vec2};
 use crate::project::Curve;
 use std::f64::consts::PI;
 
-/// Polyligne d'un tracé, congés facettisés à la flèche `tol` (mm). Le rayon
-/// d'un congé est réduit si les arêtes voisines sont trop courtes (au plus
-/// la moitié de chacune).
-pub fn flatten(curve: &Curve, tol: f64) -> Vec<Vec2> {
+/// Congé au sommet `i` : point d'entrée, point de sortie, centre, rayon et
+/// angle parcouru (signé). Le rayon est réduit si les arêtes voisines sont
+/// trop courtes (au plus la moitié de chacune). `None` : sommet vif.
+fn fillet_at(curve: &Curve, i: usize) -> Option<(Vec2, Vec2, Vec2, f64, f64)> {
     let p = &curve.points;
     let n = p.len();
-    let mut out = Vec::with_capacity(n);
-    for i in 0..n {
-        let cur = p[i];
-        let r = curve.fillet(i);
-        let interior = curve.closed || (i > 0 && i + 1 < n);
-        if r <= 0.0 || !interior || n < 3 {
-            out.push(cur);
-            continue;
+    let r = curve.fillet(i);
+    let interior = curve.closed || (i > 0 && i + 1 < n);
+    if r <= 0.0 || !interior || n < 3 {
+        return None;
+    }
+    let cur = p[i];
+    let prev = p[(i + n - 1) % n];
+    let next = p[(i + 1) % n];
+    let (lp, ln) = (prev.distance(cur), next.distance(cur));
+    if lp < 1e-9 || ln < 1e-9 {
+        return None;
+    }
+    let u_in = (prev - cur) * (1.0 / lp);
+    let u_out = (next - cur) * (1.0 / ln);
+    let alpha = u_in.dot(u_out).clamp(-1.0, 1.0).acos();
+    if !(1e-6..=PI - 1e-6).contains(&alpha) {
+        return None;
+    }
+    let tan_half = (alpha / 2.0).tan();
+    let setback = (r / tan_half).min(0.5 * lp.min(ln));
+    let radius = setback * tan_half;
+    let t_in = cur + u_in * setback;
+    let t_out = cur + u_out * setback;
+    let center = cur + (u_in + u_out).normalized() * (radius / (alpha / 2.0).sin());
+    let a0 = (t_in - center).angle();
+    let mut sweep = (t_out - center).angle() - a0;
+    while sweep > PI {
+        sweep -= 2.0 * PI;
+    }
+    while sweep < -PI {
+        sweep += 2.0 * PI;
+    }
+    Some((t_in, t_out, center, radius, sweep))
+}
+
+/// Polyligne d'un tracé, congés facettisés à la flèche `tol` (mm).
+pub fn flatten(curve: &Curve, tol: f64) -> Vec<Vec2> {
+    let mut out = Vec::with_capacity(curve.points.len());
+    for i in 0..curve.points.len() {
+        match fillet_at(curve, i) {
+            None => out.push(curve.points[i]),
+            Some((t_in, t_out, center, radius, sweep)) => {
+                let a0 = (t_in - center).angle();
+                let segs = arc_segments(radius, sweep, tol, 32);
+                out.push(t_in);
+                for k in 1..segs {
+                    out.push(
+                        center + Vec2::from_angle(a0 + sweep * k as f64 / segs as f64) * radius,
+                    );
+                }
+                out.push(t_out);
+            }
         }
-        let prev = p[(i + n - 1) % n];
-        let next = p[(i + 1) % n];
-        let (lp, ln) = (prev.distance(cur), next.distance(cur));
-        if lp < 1e-9 || ln < 1e-9 {
-            out.push(cur);
-            continue;
-        }
-        let u_in = (prev - cur) * (1.0 / lp);
-        let u_out = (next - cur) * (1.0 / ln);
-        let alpha = u_in.dot(u_out).clamp(-1.0, 1.0).acos();
-        if !(1e-6..=PI - 1e-6).contains(&alpha) {
-            out.push(cur);
-            continue;
-        }
-        let tan_half = (alpha / 2.0).tan();
-        let setback = (r / tan_half).min(0.5 * lp.min(ln));
-        let radius = setback * tan_half;
-        let t_in = cur + u_in * setback;
-        let t_out = cur + u_out * setback;
-        let center = cur + (u_in + u_out).normalized() * (radius / (alpha / 2.0).sin());
-        let a0 = (t_in - center).angle();
-        let mut sweep = (t_out - center).angle() - a0;
-        while sweep > PI {
-            sweep -= 2.0 * PI;
-        }
-        while sweep < -PI {
-            sweep += 2.0 * PI;
-        }
-        let segs = arc_segments(radius, sweep, tol, 32);
-        out.push(t_in);
-        for k in 1..segs {
-            out.push(center + Vec2::from_angle(a0 + sweep * k as f64 / segs as f64) * radius);
-        }
-        out.push(t_out);
     }
     out
+}
+
+/// Contour exact d'un tracé fermé : congés en arcs (bulge), pour les exports.
+pub fn contour(curve: &Curve) -> Contour {
+    let mut out = Vec::with_capacity(2 * curve.points.len());
+    for i in 0..curve.points.len() {
+        match fillet_at(curve, i) {
+            None => out.push(Vertex {
+                p: curve.points[i],
+                bulge: 0.0,
+            }),
+            Some((t_in, t_out, _, _, sweep)) => {
+                out.push(Vertex {
+                    p: t_in,
+                    bulge: (sweep / 4.0).tan(),
+                });
+                out.push(Vertex {
+                    p: t_out,
+                    bulge: 0.0,
+                });
+            }
+        }
+    }
+    Contour::Path(out)
 }
 
 /// Ajoute des sommets pour qu'aucune arête ne dépasse `step` (mm).
@@ -250,6 +285,25 @@ pub fn place_along(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn closed_curve_contour_keeps_fillets_exact() {
+        // Carré 10 × 10, congés de 2 : aire 100 − (4 − π) × 4.
+        let c = Curve {
+            points: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(10.0, 0.0),
+                Vec2::new(10.0, 10.0),
+                Vec2::new(0.0, 10.0),
+            ],
+            closed: true,
+            fillets: vec![2.0; 4],
+        };
+        let exact = contour(&c);
+        assert!((exact.area() - (100.0 - (4.0 - PI) * 4.0)).abs() < 1e-9);
+        let Contour::Path(v) = exact else { panic!() };
+        assert_eq!(v.iter().filter(|x| x.bulge != 0.0).count(), 4);
+    }
 
     fn square_curve(r: f64) -> Curve {
         Curve {

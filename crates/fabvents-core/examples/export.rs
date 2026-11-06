@@ -1,4 +1,5 @@
-//! Exporte le projet d'exemple (ou un projet JSON) en SVG et DXF :
+//! Exporte le projet d'exemple (ou un projet JSON) en SVG, DXF et STEP
+//! (un fichier, et une archive ZIP de dalles si le projet en demande) :
 //! `cargo run -p fabvents-core --example export -- <dossier> [projet.json]`.
 
 use fabvents_core::{export, Pipeline, Project};
@@ -21,9 +22,21 @@ fn main() {
     std::fs::create_dir_all(&dir).expect("dossier");
     std::fs::write(dir.join("fabvents.svg"), export::svg::svg(&d)).expect("svg");
     std::fs::write(dir.join("fabvents.dxf"), export::dxf::dxf(&d)).expect("dxf");
+    let ts = "2026-01-01T00:00:00";
+    match export::step::step_file(&project, &frame, ts) {
+        Ok(s) => std::fs::write(dir.join("fabvents.step"), s).expect("step"),
+        Err(e) => eprintln!("STEP : {e}"),
+    }
+    if project.fabrication.tiles != [1, 1] {
+        match export::step::step_zip(&project, &frame, ts) {
+            Ok(z) => std::fs::write(dir.join("fabvents-dalles.zip"), z).expect("zip"),
+            Err(e) => eprintln!("ZIP : {e}"),
+        }
+    }
     println!(
-        "{} perforations, ouverture {:.1} %",
+        "{} perforations, ouverture {:.1} %, volume sans dépouille {:.4} mm³",
         frame.holes.len(),
-        frame.metrics.open_ratio
+        frame.metrics.open_ratio,
+        (frame.metrics.plate_area - frame.metrics.open_area) * project.plate.thickness
     );
 }

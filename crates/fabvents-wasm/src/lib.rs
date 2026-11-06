@@ -27,6 +27,9 @@ pub struct Drawing {
     outline: Vec<f64>,
     zone_points: Vec<f64>,
     zone_offsets: Vec<u32>,
+    alert_points: Vec<f64>,
+    alert_offsets: Vec<u32>,
+    tile_cuts: Vec<f64>,
     report: String,
 }
 
@@ -60,6 +63,21 @@ impl Drawing {
     /// Début de chaque contour de zone dans `zone_points`, plus la fin.
     pub fn take_zone_offsets(&mut self) -> Vec<u32> {
         std::mem::take(&mut self.zone_offsets)
+    }
+
+    /// Perforations en cause pour l'export STEP (dépouille) : `x, y` à la suite.
+    pub fn take_alert_points(&mut self) -> Vec<f64> {
+        std::mem::take(&mut self.alert_points)
+    }
+
+    /// Début de chaque contour en cause dans `alert_points`, plus la fin.
+    pub fn take_alert_offsets(&mut self) -> Vec<u32> {
+        std::mem::take(&mut self.alert_offsets)
+    }
+
+    /// Lignes de coupe des dalles : nombre de coupes en x, puis les x, puis les y.
+    pub fn take_tile_cuts(&mut self) -> Vec<f64> {
+        std::mem::take(&mut self.tile_cuts)
     }
 
     /// Mesures, statistiques et messages (JSON).
@@ -125,6 +143,17 @@ impl Engine {
         }
         let mut outline = Vec::new();
         push_points(&mut outline, &project.plate.contour());
+        let mut alert_points = Vec::new();
+        let mut alert_offsets = vec![0u32];
+        for c in &frame.plan.alerts {
+            for p in c {
+                alert_points.extend([p.x, p.y]);
+            }
+            alert_offsets.push((alert_points.len() / 2) as u32);
+        }
+        let mut tile_cuts = vec![frame.plan.cuts_x.len() as f64];
+        tile_cuts.extend(&frame.plan.cuts_x);
+        tile_cuts.extend(&frame.plan.cuts_y);
         let report = json!({
             "metrics": frame.metrics,
             "stats": frame.stats,
@@ -139,6 +168,9 @@ impl Engine {
             outline,
             zone_points,
             zone_offsets,
+            alert_points,
+            alert_offsets,
+            tile_cuts,
             report,
         })
     }
@@ -162,6 +194,25 @@ impl Engine {
 
     pub fn export_dxf(&mut self, project_json: &str) -> Result<String, JsError> {
         self.drawing_export(project_json, export::dxf::dxf)
+    }
+
+    /// STEP de toute la plaque (une pièce par dalle). `timestamp` : date ISO
+    /// 8601 de l'en-tête.
+    pub fn export_step(&mut self, project_json: &str, timestamp: &str) -> Result<String, JsError> {
+        let project = read(project_json)?;
+        let frame = self.pipeline.compute(&project);
+        export::step::step_file(&project, &frame, timestamp).map_err(JsError::new)
+    }
+
+    /// Archive ZIP d'un STEP par dalle.
+    pub fn export_step_zip(
+        &mut self,
+        project_json: &str,
+        timestamp: &str,
+    ) -> Result<Vec<u8>, JsError> {
+        let project = read(project_json)?;
+        let frame = self.pipeline.compute(&project);
+        export::step::step_zip(&project, &frame, timestamp).map_err(JsError::new)
     }
 }
 
@@ -247,9 +298,25 @@ mod tests {
         );
         assert_eq!(
             report["stages"],
-            serde_json::json!([true, true, true, true])
+            serde_json::json!([true, true, true, true, false])
         );
         assert_eq!(d.take_zone_offsets().len(), 2);
+    }
+
+    #[test]
+    fn step_exports_are_exposed() {
+        let mut e = Engine::new();
+        let step = e
+            .export_step(&example_project(), "2026-11-06T00:00:00")
+            .unwrap();
+        assert!(step.contains("MANIFOLD_SOLID_BREP"));
+        let zip = e
+            .export_step_zip(&example_project(), "2026-11-06T00:00:00")
+            .unwrap();
+        assert_eq!(&zip[..2], b"PK");
+        let mut d = e.compute(&example_project()).unwrap();
+        assert_eq!(d.take_tile_cuts(), vec![0.0]);
+        assert_eq!(d.take_alert_offsets(), vec![0]);
     }
 
     #[test]

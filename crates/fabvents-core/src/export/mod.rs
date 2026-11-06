@@ -6,11 +6,12 @@
 //! arcs (voir `contour`).
 
 pub mod dxf;
+pub mod step;
 pub mod svg;
+pub mod zip;
 
-use crate::boolean::Cut;
-use crate::contour::{Contour, Vertex};
-use crate::pipeline::{feature_region, Frame, Hole};
+use crate::contour::Contour;
+use crate::pipeline::{feature_contour, CutContour, Frame, Hole};
 use crate::project::{Project, ProjectError};
 
 /// Formatage compact d'une coordonnée : au plus `decimals` décimales, sans
@@ -57,7 +58,7 @@ pub struct Drawing<'a> {
     pub holes: &'a [Hole],
     /// Trous remplacés par les découpes (vide : aucun).
     pub complex: &'a [bool],
-    pub cuts: &'a [Cut],
+    pub cut_contours: &'a [CutContour],
 }
 
 impl<'a> Drawing<'a> {
@@ -66,16 +67,13 @@ impl<'a> Drawing<'a> {
             project,
             holes: frame.holes,
             complex: frame.complex,
-            cuts: frame.cuts,
+            cut_contours: frame.cut_contours,
         }
     }
 
     /// Contours à découper à l'intérieur de la plaque : trous exacts,
     /// découpes (contour et îlots), trous de fixation.
     pub fn inner_contours(&self) -> Vec<Contour> {
-        let path = |pts: &[crate::geom::Vec2]| {
-            Contour::Path(pts.iter().map(|&p| Vertex { p, bulge: 0.0 }).collect())
-        };
         let mut out: Vec<Contour> = self
             .holes
             .iter()
@@ -83,16 +81,16 @@ impl<'a> Drawing<'a> {
             .filter(|(i, _)| !self.complex.get(*i).copied().unwrap_or(false))
             .map(|(_, h)| h.contour())
             .collect();
-        for c in self.cuts {
-            out.push(path(&c.outer));
-            out.extend(c.islands.iter().map(|i| path(i)));
+        for c in self.cut_contours {
+            out.push(c.outer.clone());
+            out.extend(c.islands.iter().cloned());
         }
         out.extend(
             self.project
                 .features
                 .iter()
                 .filter(|f| f.cut)
-                .map(|f| feature_region(f).contour()),
+                .map(feature_contour),
         );
         out
     }

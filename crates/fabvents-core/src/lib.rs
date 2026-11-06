@@ -16,10 +16,12 @@
 //! ```
 
 pub mod boolean;
+pub mod brep;
 pub mod contour;
 pub mod curve;
 pub mod export;
 pub mod field;
+pub mod fit;
 pub mod geom;
 pub mod import;
 pub mod issue;
@@ -32,6 +34,7 @@ pub mod raster;
 pub mod region;
 pub mod rng;
 pub mod shape;
+pub mod solid;
 pub mod templates;
 pub mod validate;
 

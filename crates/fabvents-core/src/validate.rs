@@ -12,6 +12,10 @@ use crate::raster::Luma;
 
 pub const MAX_POLYGON_SIDES: u32 = 64;
 pub const MAX_PATH_ROWS: u32 = 50;
+/// Dépouille maximale (degrés).
+pub const MAX_DRAFT: f64 = 45.0;
+/// Dalles au plus par direction.
+pub const MAX_TILES: u32 = 20;
 
 /// Erreurs et avertissements de saisie.
 pub fn validate(p: &Project) -> Vec<Issue> {
@@ -193,6 +197,19 @@ pub fn validate(p: &Project) -> Vec<Issue> {
     // Fabrication.
     non_negative(p.fabrication.min_size, "fabrication.min_size", &mut out);
     non_negative(p.fabrication.min_bridge, "fabrication.min_bridge", &mut out);
+    let draft = p.fabrication.draft;
+    if !(draft.is_finite() && draft.abs() <= MAX_DRAFT) {
+        out.push(Issue::error("fabrication.draft_range", "fabrication.draft").value(MAX_DRAFT));
+    }
+    for (k, field) in ["fabrication.tiles_x", "fabrication.tiles_y"]
+        .into_iter()
+        .enumerate()
+    {
+        let n = p.fabrication.tiles[k];
+        if !(1..=MAX_TILES).contains(&n) {
+            out.push(Issue::error("fabrication.tiles_range", field).value(MAX_TILES as f64));
+        }
+    }
 
     // Contrôleurs.
     for c in &p.controllers {

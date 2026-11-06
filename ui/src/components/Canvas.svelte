@@ -98,6 +98,8 @@
     'ctrl-active',
     'ctrl-active-fill',
     'canvas-ghost',
+    'canvas-tile',
+    'canvas-alert',
     'tooltip-bg',
     'tooltip-text',
     'font',
@@ -122,6 +124,7 @@
     pointer: Vec2 | null;
     ruler: { a: Vec2; b: Vec2 } | null;
     units: 'mm' | 'in';
+    extent: Vec2;
   }
 
   let raf = 0;
@@ -143,6 +146,7 @@
       pointer: pointer ? { ...pointer } : null,
       ruler: ruler ? { a: { ...ruler.a }, b: { ...ruler.b } } : null,
       units: store.units,
+      extent: store.plateExtent(),
     };
     void view.scale;
     void view.ox;
@@ -256,6 +260,42 @@
       ctx.fillStyle = colors['hole-fill'];
       // Pair-impair : les îlots de matière entourés par une découpe restent pleins.
       ctx.fill('evenodd');
+    }
+
+    // Export STEP : perforations en cause (dépouille), puis coupes des dalles.
+    if (f && f.alertOffsets.length > 1) {
+      ctx.beginPath();
+      const ap = f.alertPoints;
+      const ao = f.alertOffsets;
+      for (let k = 0; k + 1 < ao.length; k++) {
+        if (ao[k + 1] - ao[k] < 2) continue;
+        ctx.moveTo(X(ap[2 * ao[k]]), Y(ap[2 * ao[k] + 1]));
+        for (let i = ao[k] + 1; i < ao[k + 1]; i++) ctx.lineTo(X(ap[2 * i]), Y(ap[2 * i + 1]));
+        ctx.closePath();
+      }
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = colors['canvas-alert'];
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+    if (f && f.tileCuts.length > 1) {
+      const nx = f.tileCuts[0];
+      const ext = scene.extent;
+      ctx.beginPath();
+      for (let k = 1; k < f.tileCuts.length; k++) {
+        const v = f.tileCuts[k];
+        if (k <= nx) {
+          ctx.moveTo(X(v), Y(0));
+          ctx.lineTo(X(v), Y(ext.y));
+        } else {
+          ctx.moveTo(X(0), Y(v));
+          ctx.lineTo(X(ext.x), Y(v));
+        }
+      }
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = colors['canvas-tile'];
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     for (const it of scene.items) drawItem(ctx, it, scene);

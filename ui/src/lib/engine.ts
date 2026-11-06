@@ -4,7 +4,10 @@
 
 import type { FrameData } from './types';
 
-type Pending = { resolve: (v: string) => void; reject: (e: Error) => void };
+type Pending = { resolve: (v: any) => void; reject: (e: Error) => void };
+
+/** Date de l'en-tête STEP (le moteur n'a pas d'horloge) : ISO 8601 à la seconde. */
+const stamp = () => new Date().toISOString().slice(0, 19);
 
 export class EngineClient {
   #worker: Worker;
@@ -62,7 +65,7 @@ export class EngineClient {
     this.#worker.postMessage({ kind: 'compute', id: ++this.#seq, project });
   }
 
-  #call(msg: Record<string, unknown>): Promise<string> {
+  #call<T = string>(msg: Record<string, unknown>): Promise<T> {
     const id = ++this.#seq;
     return new Promise((resolve, reject) => {
       this.#pending.set(id, { resolve, reject });
@@ -70,8 +73,13 @@ export class EngineClient {
     });
   }
 
-  export(format: 'svg' | 'dxf', project: string): Promise<string> {
-    return this.#call({ kind: 'export', format, project });
+  export(format: 'svg' | 'dxf' | 'step', project: string): Promise<string> {
+    return this.#call({ kind: 'export', format, project, timestamp: stamp() });
+  }
+
+  /** Archive ZIP d'un STEP par dalle. */
+  exportStepZip(project: string): Promise<Uint8Array> {
+    return this.#call<Uint8Array>({ kind: 'export-zip', project, timestamp: stamp() });
   }
 
   /** Contour de plaque depuis un SVG ou un DXF (JSON `ImportedOutline`). */

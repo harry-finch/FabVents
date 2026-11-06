@@ -17,8 +17,8 @@ export function baseName(name: string): string {
   return s || 'fabvents';
 }
 
-export function download(text: string, filename: string, mime: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+export function download(data: string | Uint8Array<ArrayBuffer>, filename: string, mime: string) {
+  const url = URL.createObjectURL(new Blob([data], { type: mime }));
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
@@ -28,7 +28,9 @@ export function download(text: string, filename: string, mime: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export async function exportAs(format: 'svg' | 'dxf' | 'project') {
+const MIME = { svg: 'image/svg+xml', dxf: 'application/dxf', step: 'model/step' } as const;
+
+export async function exportAs(format: 'svg' | 'dxf' | 'step' | 'step-zip' | 'project') {
   const p = store.project;
   if (!p) return;
   const name = baseName(p.name);
@@ -39,9 +41,16 @@ export async function exportAs(format: 'svg' | 'dxf' | 'project') {
     return;
   }
   try {
+    if (format === 'step-zip') {
+      const bytes = await store.engine.exportStepZip(json);
+      const file = `${name}-dalles.zip`;
+      download(bytes as Uint8Array<ArrayBuffer>, file, 'application/zip');
+      store.toast(t('file.exported', { name: file }));
+      return;
+    }
     const text = await store.engine.export(format, json);
     const file = `${name}.${format}`;
-    download(text, file, format === 'svg' ? 'image/svg+xml' : 'application/dxf');
+    download(text, file, MIME[format]);
     store.toast(t('file.exported', { name: file }));
   } catch (e) {
     const code = e instanceof Error ? e.message : '';

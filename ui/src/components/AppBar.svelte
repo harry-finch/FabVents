@@ -1,7 +1,7 @@
 <script lang="ts">
   // Barre d'application : identité, projet (nom et menu Fichier), unités,
   // langue, thème, aide, et l'action principale : exporter.
-  import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, Monitor, Moon, Save, Sparkles, Sun, FileImage, FileCode, FileBraces, FileText, Fan, ImageDown } from '@lucide/svelte';
+  import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, Monitor, Moon, Save, Sparkles, Sun, FileImage, FileCode, FileBraces, FileText, Fan, ImageDown, Box, Grid2x2 } from '@lucide/svelte';
   import Popover from './Popover.svelte';
   import { theme, THEMES } from '../lib/theme.svelte';
   import { store } from '../lib/store.svelte';
@@ -15,6 +15,10 @@
   const shown = $derived(draft ?? store.p.name);
 
   const blocked = $derived(!!store.frame?.report.issues.some((i) => i.severity === 'error'));
+  // Codes du moteur qui empêchent l'export STEP (voir `solid.rs`).
+  const STEP_BLOCKING = ['draft.collapse', 'draft.pierce', 'tiles.draft', 'features.outside'];
+  const stepBlocked = $derived(blocked || !!store.frame?.report.issues.some((i) => STEP_BLOCKING.includes(i.code)));
+  const tiles = $derived((store.p.fabrication.tiles ?? [1, 1])[0] * (store.p.fabrication.tiles ?? [1, 1])[1]);
 </script>
 
 <header class="bar">
@@ -109,6 +113,17 @@
           <FileCode size={14} />
           <span class="txt"><span class="rname">{t('export.dxf')}</span><span class="desc">{t('export.dxfHint')}</span></span>
         </button>
+        {#if stepBlocked && !blocked}<p class="note warn">{t('export.stepBlocked')}</p>{/if}
+        <button class="row" type="button" disabled={stepBlocked} onclick={() => { close(); void exportAs('step'); }}>
+          <Box size={14} />
+          <span class="txt"><span class="rname">{t('export.step')}</span><span class="desc">{t('export.stepHint')}</span></span>
+        </button>
+        {#if tiles > 1}
+          <button class="row" type="button" disabled={stepBlocked} onclick={() => { close(); void exportAs('step-zip'); }}>
+            <Grid2x2 size={14} />
+            <span class="txt"><span class="rname">{t('export.stepZip')}</span><span class="desc">{t('export.stepZipHint', { n: tiles })}</span></span>
+          </button>
+        {/if}
         <button class="row" type="button" disabled={blocked || !store.frame} onclick={() => { close(); exportPng(); }}>
           <ImageDown size={14} />
           <span class="txt"><span class="rname">{t('export.png')}</span><span class="desc">{t('export.pngHint')}</span></span>

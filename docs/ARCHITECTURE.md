@@ -25,7 +25,7 @@ Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`, `i_ov
 
 | Module | Rôle |
 | --- | --- |
-| `project` | `Project` sérialisable (format `fabvents.project`, version 3) : plaque (contour, zone perforée), disposition, forme, bords, fabrication, contrôleurs, éléments de plaque (trous de fixation, zones réservées). Lecture avec contrôle du format et de la version. |
+| `project` | `Project` sérialisable (format `fabvents.project`, version 4) : plaque (contour, zone perforée), disposition, forme, bords, fabrication (dont dépouille et dalles de l'export STEP), contrôleurs, éléments de plaque (trous de fixation, zones réservées). Lecture avec contrôle du format et de la version. |
 | `validate` | Contrôle des valeurs : erreurs (motif non calculé) et avertissements, par code stable et chemin de champ. |
 | `geom` | `Vec2`, aires, distances point / segment / âme, arcs en *bulge*. |
 | `contour` | Contour exact : cercle, ou sommets avec arcs (*bulge*) ; contour d'une âme arrondie (somme de Minkowski) ; aire exacte ; facettisation à flèche donnée (ADR-0005). |
@@ -40,9 +40,12 @@ Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`, `i_ov
 | `rng` | Aléatoire reproductible (SplitMix64) et tirage attaché à une position. |
 | `shape` | Forme d'un trou à une taille et un angle donnés : âme, arrondi, rayon englobant, aire. |
 | `field` | Contrôleurs préparés (tracés aplatis, image décodée) ; poids avec options (côté, prolongement, remplissage, image) ; mélange pondéré par canal, symétrie, paliers, bornes du canal, disparition aléatoire (ADR-0004, ADR-0006). |
-| `pipeline` | Calcul par étages avec cache (germes → trous → mesures → découpe) ; messages du calcul. |
+| `pipeline` | Calcul par étages avec cache (germes → trous → mesures → découpe → pièces STEP) ; messages du calcul. |
+| `fit` | Contours exacts des découpes : arcs retrouvés sur les cercles connus (trous, gardes, zone, plaque), raccords recalés sur les intersections exactes, segments alignés fusionnés (RDP). |
+| `brep` | Boucles exactes (segments et arcs) orientées matière à gauche : aire, boîte, décalage du fond (dépouille), coupe de plusieurs boucles par une droite (dalles, encoches à travers les trous). |
+| `solid` | Pièces de l'export STEP : plaque ou dalles, îlots, parois en dépouille ; contrôles `draft.collapse`, `draft.pierce`, `tiles.draft` et perforations en cause pour le canevas. |
 | `metrics` | Taux d'ouverture, tailles, nervures exactes et chevauchements (grille de répartition), trous à fusionner. |
-| `export` | `Drawing` (contours intérieurs : trous simples, découpes, éléments découpés), `svg` (projet embarqué dans `<metadata>`), `dxf` (R12), lecture du projet d'un SVG (ADR-0003). |
+| `export` | `Drawing` (contours intérieurs : trous simples, découpes exactes, éléments découpés), `svg` (projet embarqué dans `<metadata>`), `dxf` (R12), `step` (AP214, B-Rep explicite, ADR-0008), `zip` (archive stockée, une dalle par fichier), lecture du projet d'un SVG (ADR-0003). |
 | `issue` | `Issue` : code, gravité, champ, valeur, nombre. |
 
 Cycle d'un calcul :
@@ -56,13 +59,15 @@ Project ─► validate ─► erreurs ? ─oui─► aucun trou, messages
                      angle (canal Angle + disposition), forme, zone (trou entier),
                      garde des éléments de plaque
           ─► mesures (trous, nervure mini, chevauchements)
-          ─► découpe : union des trous qui se chevauchent ou dépassent (Découper)
-          ─► Frame : trous, mesures, statistiques, messages
+          ─► découpe : union des trous qui se chevauchent ou dépassent (Découper),
+                       arcs retrouvés (`fit`)
+          ─► pièces STEP (seulement avec dépouille ou dalles) : contrôles, coupes
+          ─► Frame : trous, découpes, mesures, statistiques, messages, pièces
 ```
 
 ### `fabvents-wasm`
 
-Pont `wasm-bindgen` : `Engine.compute(json)` renvoie la géométrie à dessiner en tableaux plats (cercles `x, y, r` ; autres contours et découpes facettisés à 0,02 mm ; contours de la plaque et de la zone perforée) et un rapport JSON ; `export_svg`, `export_dxf`, `read_project` (JSON ou SVG FabVents), `import_outline` (SVG ou DXF quelconque), `fan_template`, `example_project`, `default_project`. Les erreurs sortent par leur code stable, traduit par l'interface. Le `Pipeline` reste en mémoire entre deux appels : seul l'étage modifié est recalculé.
+Pont `wasm-bindgen` : `Engine.compute(json)` renvoie la géométrie à dessiner en tableaux plats (cercles `x, y, r` ; autres contours et découpes facettisés à 0,02 mm ; contours de la plaque et de la zone perforée ; perforations en cause et coupes des dalles de l'export STEP) et un rapport JSON ; `export_svg`, `export_dxf`, `export_step` et `export_step_zip` (date de l'en-tête fournie par l'interface : le moteur n'a pas d'horloge), `read_project` (JSON ou SVG FabVents), `import_outline` (SVG ou DXF quelconque), `fan_template`, `example_project`, `default_project`. Les erreurs sortent par leur code stable, traduit par l'interface. Le `Pipeline` reste en mémoire entre deux appels : seul l'étage modifié est recalculé.
 
 ## Interface (`ui/`)
 
@@ -90,4 +95,4 @@ Svelte 5 (runes) + Vite + TypeScript, icônes `@lucide/svelte`, police Inter : m
 
 ## Décisions
 
-Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006), découpe et éléments de plaque (0007).
+Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006), découpe et éléments de plaque (0007), export STEP en B-Rep explicite (0008).

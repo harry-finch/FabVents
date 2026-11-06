@@ -5,7 +5,8 @@ import init, { Engine, read_project, example_project, default_project, engine_ve
 
 type Request =
   | { kind: 'compute'; id: number; project: string }
-  | { kind: 'export'; id: number; format: 'svg' | 'dxf'; project: string }
+  | { kind: 'export'; id: number; format: 'svg' | 'dxf' | 'step'; project: string; timestamp?: string }
+  | { kind: 'export-zip'; id: number; project: string; timestamp: string }
   | { kind: 'read'; id: number; text: string }
   | { kind: 'import'; id: number; text: string }
   | { kind: 'template'; id: number; size: number };
@@ -38,20 +39,30 @@ onmessage = async (ev: MessageEvent<Request>) => {
       const outline = d.take_outline();
       const zonePoints = d.take_zone_points();
       const zoneOffsets = d.take_zone_offsets();
+      const alertPoints = d.take_alert_points();
+      const alertOffsets = d.take_alert_offsets();
+      const tileCuts = d.take_tile_cuts();
       const report = JSON.parse(d.report());
       d.free();
       const ms = performance.now() - t0;
-      post({ kind: 'frame', id: req.id, frame: { circles, polyPoints, polyOffsets, outline, zonePoints, zoneOffsets, report, ms } }, [
+      post({ kind: 'frame', id: req.id, frame: { circles, polyPoints, polyOffsets, outline, zonePoints, zoneOffsets, alertPoints, alertOffsets, tileCuts, report, ms } }, [
         circles.buffer as ArrayBuffer,
         polyPoints.buffer as ArrayBuffer,
         polyOffsets.buffer as ArrayBuffer,
         outline.buffer as ArrayBuffer,
         zonePoints.buffer as ArrayBuffer,
         zoneOffsets.buffer as ArrayBuffer,
+        alertPoints.buffer as ArrayBuffer,
+        alertOffsets.buffer as ArrayBuffer,
+        tileCuts.buffer as ArrayBuffer,
       ]);
     } else if (req.kind === 'export') {
-      const text = req.format === 'svg' ? e.export_svg(req.project) : e.export_dxf(req.project);
+      const text =
+        req.format === 'svg' ? e.export_svg(req.project) : req.format === 'dxf' ? e.export_dxf(req.project) : e.export_step(req.project, req.timestamp ?? '');
       post({ kind: 'result', id: req.id, ok: true, value: text });
+    } else if (req.kind === 'export-zip') {
+      const bytes = e.export_step_zip(req.project, req.timestamp);
+      post({ kind: 'result', id: req.id, ok: true, value: bytes }, [bytes.buffer as ArrayBuffer]);
     } else if (req.kind === 'read') {
       post({ kind: 'result', id: req.id, ok: true, value: read_project(req.text) });
     } else if (req.kind === 'import') {

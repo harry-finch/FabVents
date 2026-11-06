@@ -73,3 +73,20 @@ v0.3 testée et validée par l'utilisateur. Logo et couleur d'identité (vert ch
 ## 2026-10-23 — Skill `fab-design-system`
 
 Thème, style graphique et philosophie UX de la famille Fab réunis dans une skill réutilisable (`.agents/skills/fab-design-system/`), tirée du code de FabSpeed et de FabVents : dix références (philosophie, jetons sombre / clair, typographie, mise en page, composants, interactions, textes et langues, canevas, identité et logo, revue) et un kit de démarrage Svelte 5 (jetons, thème, langues, unités, infobulles, onze composants) qui passe `svelte-check` et `vite build`. Relevé au passage : les logos de FabCAM (bleu) et de KiPartManager (ambre) sont proches des couleurs de sens ; la skill demande une teinte distincte pour toute nouvelle application.
+
+## 2026-11-06 — v0.4 : export STEP
+
+**Choix** (ADR-0008).
+- Générateur STEP maison en B-Rep explicite plutôt que `truck` : faces planes, cylindriques et coniques exactes, cercles en deux demi-arcs.
+- Dépouille sur les perforations : fond décalé côté matière, contrôles `draft.collapse` / `draft.pierce` avec les perforations en cause sur le canevas.
+- Dalles : coupes entre les perforations si possible, sinon à travers avec des encoches exactes (une grille en quinconce n'a aucune coupe libre) ; refusées à travers une paroi en dépouille (`tiles.draft`).
+- Arcs retrouvés sur les découpes (`fit`) : le mode Découper passe de 2 449 à 94 faces planes, et le SVG et le DXF y gagnent des arcs vrais. Congés des tracés exacts (`curve::contour`).
+- Format de projet v4 (dépouille et dalles dans `fabrication`), additif.
+
+**Vérification.** 121 tests ; neuf cas validés dans FreeCAD ([fiche](docs/validation/step-freecad.md)) ; parcours dans le navigateur (voir STATUS).
+
+**Défauts corrigés pendant la vérification.**
+- Coupes de dalles introuvables sur une grille en quinconce (premier essai : coupes seulement entre les perforations) : coupe de toutes les boucles à la fois, à travers les perforations.
+- Îlots en triangle d'arcs concaves refusés par FreeCAD : coordonnées à 10 décimales au lieu de 7.
+- Raccords entre deux arcs restés en petits segments : tolérance « sur le cercle » portée à 3 µm et raccords recalés sur l'intersection exacte.
+- Trou de fixation à cheval sur le bord : solide invalide ; export STEP refusé (`export.step_features_outside`).

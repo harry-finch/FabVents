@@ -45,6 +45,11 @@ const en: Shape<typeof fr> = {
     projectHint: '.fabvents.json file, every setting',
     png: 'PNG',
     pngHint: '300 dpi image on a transparent background (presentation, texture)',
+    step: 'STEP (AP214)',
+    stepHint: 'CAD, 3D printing: exact solid, cylindrical holes',
+    stepZip: 'STEP per tile (ZIP)',
+    stepZipHint: '{n} tiles, one STEP file each',
+    stepBlocked: 'STEP not possible yet: see the messages (draft, tiles, mounting holes).',
   },
   errors: {
     project: {
@@ -54,7 +59,11 @@ const en: Shape<typeof fr> = {
       invalid: 'incomplete or invalid project.',
       svg_without_project: 'this SVG does not contain a FabVents project.',
     },
-    export: { invalid_project: 'Cannot export: the pattern has errors.' },
+    export: {
+      invalid_project: 'Cannot export: the pattern has errors.',
+      step_blocked: 'Cannot export STEP: the draft or the tiles are a problem (see the messages).',
+      step_features_outside: 'Cannot export STEP: a mounting hole extends past the plate.',
+    },
     import: { syntax: 'unreadable file (SVG or DXF expected).', no_closed_contour: 'no closed contour in this file.' },
     template: { unknown_size: 'unknown template.' },
   },
@@ -212,6 +221,12 @@ const en: Shape<typeof fr> = {
     title: 'Fabrication',
     minSize: 'Min size',
     minSizeHint: 'Smaller holes are removed (and counted): too small to be cut.',
+    step: 'STEP export',
+    draft: 'Draft',
+    draftHint: 'Wall angle of the holes in the STEP export. Positive: the hole widens towards the bottom (demoulding, support-free printing); negative: it narrows. No effect on SVG and DXF.',
+    tilesX: 'Columns',
+    tilesY: 'Rows',
+    tilesHint: 'Splits the STEP export into tiles (printer bed too small, part too heavy for CAD). Cuts run between holes when possible, otherwise through them, away from their edges.',
     minBridge: 'Min bridge',
     minBridgeHint: 'Minimum material between two holes. Below it, FabVents warns.',
   },
@@ -403,6 +418,17 @@ const en: Shape<typeof fr> = {
       removed_feature: '{count} holes removed around mounting holes and reserved zones.',
     },
     features: { outside: '{count} mounting holes extend past the plate: they will only be partly cut.' },
+    fabrication: {
+      draft_range: '{field}: at most {value}° either way.',
+      tiles_range: '{field}: between 1 and {value}.',
+    },
+    draft: {
+      collapse: '{count} holes close up (or lose their rounding) before the bottom with this draft: reduce the angle.',
+      pierce: '{count} holes touch a neighbour, a mounting hole or the edge at the bottom of the plate: reduce the draft.',
+    },
+    tiles: {
+      draft: '{count} tile cuts go through holes, which is not possible with a draft: set it to 0 or change the number of tiles.',
+    },
     bridge: { thin: '{count} bridges thinner than the minimum (thinnest: {value}).' },
   },
   fields: {
@@ -429,7 +455,7 @@ const en: Shape<typeof fr> = {
     },
     features: { diameter: 'Hole diameter', width: 'Zone width', height: 'Zone height', corner: 'Zone rounding', clearance: 'Clearance' },
     shape: { size: 'Shape size', rotation: 'Rotation', aspect: 'Proportions', corner: 'Rounding', sides: 'Sides', points: 'Points', inner: 'Depth' },
-    fabrication: { min_size: 'Min size', min_bridge: 'Min bridge' },
+    fabrication: { min_size: 'Min size', min_bridge: 'Min bridge', draft: 'Draft', tiles_x: 'Columns', tiles_y: 'Rows' },
     controllers: {
       geometry: 'Controller geometry',
       size: { reach: 'Reach (size)', target: 'Target size', cull: 'Share removed', contrast: 'Contrast' },

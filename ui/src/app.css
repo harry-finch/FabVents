@@ -71,6 +71,9 @@
   --ctrl-active: #4b9cf5;
   --ctrl-active-fill: rgb(75 156 245 / 0.06);
   --canvas-ghost: rgb(75 156 245 / 0.7);
+  /* Export STEP : coupes des dalles, perforations en cause (dépouille). */
+  --canvas-tile: rgb(255 255 255 / 0.45);
+  --canvas-alert: #ef5b5b;
 
   /* Fenêtres et infobulles. */
   --backdrop: rgb(0 0 0 / 0.5);
@@ -160,6 +163,8 @@
   --ctrl-active: #1473e6;
   --ctrl-active-fill: rgb(20 115 230 / 0.06);
   --canvas-ghost: rgb(20 115 230 / 0.7);
+  --canvas-tile: rgb(0 0 0 / 0.45);
+  --canvas-alert: #bb1f28;
 
   --backdrop: rgb(0 0 0 / 0.28);
   --tooltip-bg: #2b2b2b;

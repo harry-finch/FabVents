@@ -87,10 +87,10 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | EXP-03 | Projet `.fabvents.json` ; ouverture d'un projet ou d'un SVG FabVents | v0.1 | fait |
 | EXP-04 | Reprise automatique du dernier projet | v0.1 | fait |
 | EXP-05 | PNG haute résolution, fond transparent | v0.3 | fait |
-| EXP-06 | STEP : plaque B-Rep, cercles analytiques | v0.4 | prévu |
-| EXP-07 | STEP : découpage en dalles (ZIP ou assemblage) | v0.4 | prévu |
-| EXP-08 | STEP : angle de dépouille avec validation | v0.4 | prévu |
-| EXP-09 | DXF : arcs exacts (*bulge*), simplification RDP | v0.4 | prévu |
+| EXP-06 | STEP : plaque B-Rep, cercles analytiques | v0.4 | fait |
+| EXP-07 | STEP : découpage en dalles (ZIP ou assemblage) | v0.4 | fait |
+| EXP-08 | STEP : angle de dépouille avec validation | v0.4 | fait |
+| EXP-09 | DXF : arcs exacts (*bulge*), simplification RDP (découpes et congés, tous les exports) | v0.4 | fait |
 | EXP-10 | Préréglages : bibliothèque locale, adaptation aux proportions | v0.7 | prévu |
 | EXP-11 | Wrap : projection sur une face 3D courbe | — | hors périmètre |
 
@@ -125,7 +125,7 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | `i_overlay` | Retenue (v0.3) | Booléens 2D en Rust pur, compilable en WebAssembly. |
 | DXF AC1015 minimal | Remplacée par DXF R12 | Un AC1015 sans tables complètes ni identifiants est refusé par AutoCAD ; le R12 est lu partout (ADR-0003). |
 | STEP `EXTRUDED_AREA_SOLID` | Écartée | Entité de géométrie constructive peu lue par les importeurs AP214 ; B-Rep explicite à la place (v0.4). |
-| STEP via `truck` | À évaluer (v0.4) | Alternative au générateur maison pour la dépouille. |
+| STEP via `truck` | Écartée (v0.4) | Générateur B-Rep maison (ADR-0008) : arcs, cônes et dalles exacts sans noyau NURBS, fichiers validés dans FreeCAD. |
 | Wrap (OpenCascade, LSCM / ARAP) | Hors périmètre | Coût sans commune mesure avec le reste. |
 | `rhai` pour les dispositions scriptées | Retenue (v0.7) | Bac à sable, limite d'opérations. |
 | Aperçu PNG pour MCP (`tiny-skia`) | Retenue (v0.7) | Rendu sans fenêtre. |

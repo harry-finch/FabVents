@@ -15,7 +15,7 @@ use crate::geom::Vec2;
 use serde::{Deserialize, Serialize};
 
 pub const FORMAT: &str = "fabvents.project";
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 4;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -577,6 +577,13 @@ pub struct Fabrication {
     pub min_size: f64,
     /// Nervure (matière entre deux trous) sous laquelle le moteur avertit.
     pub min_bridge: f64,
+    /// Angle de dépouille des parois des perforations (degrés, export STEP) :
+    /// positif, le trou s'évase vers le dessous ; négatif, il se resserre.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub draft: f64,
+    /// Découpage en dalles de l'export STEP : colonnes, rangées.
+    #[serde(skip_serializing_if = "is_single_tile")]
+    pub tiles: [u32; 2],
 }
 
 impl Default for Fabrication {
@@ -584,8 +591,14 @@ impl Default for Fabrication {
         Self {
             min_size: 0.5,
             min_bridge: 1.0,
+            draft: 0.0,
+            tiles: [1, 1],
         }
     }
+}
+
+fn is_single_tile(t: &[u32; 2]) -> bool {
+    *t == [1, 1]
 }
 
 // ---------------------------------------------------------------------------

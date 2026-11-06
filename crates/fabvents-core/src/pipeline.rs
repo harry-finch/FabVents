@@ -19,21 +19,24 @@
 use crate::boolean::{cut, Cut};
 use crate::contour::Contour;
 use crate::field::Field;
+use crate::fit::{fit, Circles};
 use crate::geom::Vec2;
 use crate::issue::{Issue, Severity};
 use crate::layout::{seeds, Seed};
 use crate::metrics::{measure_with_overlaps, Metrics};
 use crate::project::{
-    Channel, Controller, EdgeMode, Feature, FeatureShape, Layout, Plate, Project, Shape,
+    Channel, Controller, EdgeMode, Fabrication, Feature, FeatureShape, Layout, Plate, Project,
+    Shape,
 };
 use crate::region::Region;
 use crate::shape::{hole_geometry, HoleGeometry};
+use crate::solid::{self, SolidPlan};
 use crate::validate::validate;
 use serde::Serialize;
 
 /// Flèche des arcs des trous découpés (mm) : écart de contour négligeable,
 /// aire à 0,05 % près.
-const CUT_TOLERANCE: f64 = 0.002;
+pub(crate) const CUT_TOLERANCE: f64 = 0.002;
 
 /// Nombre maximal de perforations d'un motif.
 pub const MAX_HOLES: usize = 150_000;
@@ -75,11 +78,18 @@ pub struct Frame<'a> {
     pub holes: &'a [Hole],
     /// Pour chaque trou : remplacé par les découpes (`cuts`).
     pub complex: &'a [bool],
-    /// Perforations fusionnées ou coupées au bord.
+    /// Perforations fusionnées ou coupées au bord (polygones fins, pour les
+    /// aires).
     pub cuts: &'a [Cut],
+    /// Les mêmes découpes aux contours exacts (arcs retrouvés), pour les
+    /// exports.
+    pub cut_contours: &'a [CutContour],
     pub metrics: Metrics,
     pub stats: Stats,
     pub issues: Vec<Issue>,
+    /// Pièces à extruder et contrôles de l'export STEP, calculés seulement
+    /// quand une dépouille ou des dalles sont demandées (sinon vide).
+    pub plan: &'a SolidPlan,
 }
 
 impl Frame<'_> {
@@ -108,6 +118,14 @@ struct HolesKey {
 }
 
 #[derive(PartialEq)]
+struct PlanKey {
+    cut_gen: u64,
+    plate: Plate,
+    features: Vec<Feature>,
+    fabrication: Fabrication,
+}
+
+#[derive(PartialEq)]
 struct MetricsKey {
     holes_gen: u64,
     min_bridge: f64,
@@ -130,8 +148,13 @@ pub struct Pipeline {
     cut_gen: u64,
     complex: Vec<bool>,
     cuts: Vec<Cut>,
-    /// Étages recalculés au dernier appel (germes, trous, mesures, découpe).
-    pub last_runs: [bool; 4],
+    cut_contours: Vec<CutContour>,
+    plan_key: Option<PlanKey>,
+    plan: SolidPlan,
+    empty_plan: SolidPlan,
+    /// Étages recalculés au dernier appel (germes, trous, mesures, découpe,
+    /// pièces de l'export STEP).
+    pub last_runs: [bool; 5],
 }
 
 impl Pipeline {
@@ -140,7 +163,7 @@ impl Pipeline {
     }
 
     pub fn compute(&mut self, p: &Project) -> Frame<'_> {
-        self.last_runs = [false; 4];
+        self.last_runs = [false; 5];
         let mut issues = validate(p);
         if issues.iter().any(|i| i.severity == Severity::Error) {
             self.invalidate();
@@ -148,12 +171,14 @@ impl Pipeline {
                 holes: &[],
                 complex: &[],
                 cuts: &[],
+                cut_contours: &[],
                 metrics: Metrics {
                     plate_area: p.plate.area(),
                     ..Metrics::default()
                 },
                 stats: Stats::default(),
                 issues,
+                plan: &self.empty_plan,
             };
         }
 
@@ -197,12 +222,14 @@ impl Pipeline {
                 holes: &[],
                 complex: &[],
                 cuts: &[],
+                cut_contours: &[],
                 metrics: Metrics {
                     plate_area: p.plate.area(),
                     ..Metrics::default()
                 },
                 stats: Stats::default(),
                 issues,
+                plan: &self.empty_plan,
             };
         }
 
@@ -232,12 +259,14 @@ impl Pipeline {
                 holes: &[],
                 complex: &[],
                 cuts: &[],
+                cut_contours: &[],
                 metrics: Metrics {
                     plate_area: p.plate.area(),
                     ..Metrics::default()
                 },
                 stats: self.stats,
                 issues,
+                plan: &self.empty_plan,
             };
         }
 
@@ -258,9 +287,10 @@ impl Pipeline {
 
         // Étage 4 : découpe (fusion des chevauchements, coupe au bord).
         if self.cut_gen != self.metrics_gen {
-            let (complex, cuts) = build_cuts(p, &self.holes, &self.overlapping);
+            let (complex, cuts, exact) = build_cuts(p, &self.holes, &self.overlapping);
             self.complex = complex;
             self.cuts = cuts;
+            self.cut_contours = exact;
             self.cut_gen = self.metrics_gen;
             self.last_runs[3] = true;
         }
@@ -325,13 +355,34 @@ impl Pipeline {
             issues.push(i);
         }
 
+        // Étage 5 : pièces de l'export STEP, pour vérifier en direct une
+        // dépouille ou un découpage en dalles.
+        let wanted = p.fabrication.draft != 0.0 || p.fabrication.tiles != [1, 1];
+        let key = PlanKey {
+            cut_gen: self.cut_gen,
+            plate: p.plate.clone(),
+            features: p.features.clone(),
+            fabrication: p.fabrication.clone(),
+        };
+        if !wanted {
+            self.plan = SolidPlan::default();
+            self.plan_key = None;
+        } else if self.plan_key.as_ref() != Some(&key) {
+            self.plan = solid::plan(p, &self.holes, &self.complex, &self.cut_contours);
+            self.plan_key = Some(key);
+            self.last_runs[4] = true;
+        }
+        issues.extend(self.plan.issues.iter().cloned());
+
         Frame {
             holes: &self.holes,
             complex: &self.complex,
             cuts: &self.cuts,
+            cut_contours: &self.cut_contours,
             metrics: self.metrics.clone(),
             stats: self.stats,
             issues,
+            plan: &self.plan,
         }
     }
 
@@ -344,6 +395,14 @@ impl Pipeline {
 }
 
 /// Région d'un élément (trou de fixation, zone réservée).
+/// Contour exact d'un élément de plaque (congés d'un tracé en arcs).
+pub fn feature_contour(f: &Feature) -> Contour {
+    match &f.shape {
+        FeatureShape::Curve(c) => crate::curve::contour(c),
+        _ => feature_region(f).contour(),
+    }
+}
+
 pub fn feature_region(f: &Feature) -> Region {
     match &f.shape {
         FeatureShape::Circle { center, diameter } => Region::circle(*center, diameter / 2.0),
@@ -435,7 +494,48 @@ fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
 }
 
 /// Trous à fusionner ou à couper, et leurs découpes.
-fn build_cuts(p: &Project, holes: &[Hole], overlapping: &[bool]) -> (Vec<bool>, Vec<Cut>) {
+/// Découpe aux contours exacts : arcs retrouvés sur les cercles connus.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CutContour {
+    pub outer: Contour,
+    pub islands: Vec<Contour>,
+}
+
+/// Cercles sur lesquels une découpe peut s'appuyer : perforations
+/// fusionnées, gardes des trous de fixation, zone perforée, plaque et
+/// plaque réduite de la marge.
+fn known_circles(p: &Project, holes: &[Hole], complex: &[bool]) -> Circles {
+    let mut contours: Vec<Contour> = holes
+        .iter()
+        .zip(complex)
+        .filter(|(_, c)| **c)
+        .map(|(h, _)| h.contour())
+        .collect();
+    for f in &p.features {
+        contours.push(feature_region(f).inflated(f.clearance).contour());
+    }
+    if let Some(z) = p.plate.zone_region() {
+        contours.push(z.contour());
+    }
+    let plate = p.plate.region();
+    contours.push(plate.contour());
+    if plate.round > p.plate.margin {
+        contours.push(
+            Region {
+                round: plate.round - p.plate.margin,
+                ..plate
+            }
+            .contour(),
+        );
+    }
+    Circles::from_contours(&contours)
+}
+
+fn build_cuts(
+    p: &Project,
+    holes: &[Hole],
+    overlapping: &[bool],
+) -> (Vec<bool>, Vec<Cut>, Vec<CutContour>) {
     let clip = p.edge == EdgeMode::Clip;
     let plate = p.plate.region();
     let zone = p.plate.zone_region();
@@ -459,7 +559,7 @@ fn build_cuts(p: &Project, holes: &[Hole], overlapping: &[bool]) -> (Vec<bool>, 
         })
         .collect();
     if !complex.iter().any(|c| *c) {
-        return (complex, Vec::new());
+        return (complex, Vec::new(), Vec::new());
     }
     let polys: Vec<Vec<crate::geom::Vec2>> = holes
         .iter()
@@ -470,15 +570,26 @@ fn build_cuts(p: &Project, holes: &[Hole], overlapping: &[bool]) -> (Vec<bool>, 
     let (area, keepouts) = if clip {
         let k = features
             .iter()
-            .map(|(r, c)| r.inflated(*c).contour().tessellated(0.01))
+            .map(|(r, c)| r.inflated(*c).contour().tessellated(CUT_TOLERANCE))
             .collect();
         (p.plate.perforable(), k)
     } else {
         // Seulement des chevauchements : la plaque elle-même borne la fusion.
-        (vec![p.plate.contour().tessellated(0.01)], Vec::new())
+        (
+            vec![p.plate.contour().tessellated(CUT_TOLERANCE)],
+            Vec::new(),
+        )
     };
     let cuts = cut(&polys, &area, &keepouts);
-    (complex, cuts)
+    let circles = known_circles(p, holes, &complex);
+    let exact = cuts
+        .iter()
+        .map(|c| CutContour {
+            outer: fit(&c.outer, &circles),
+            islands: c.islands.iter().map(|i| fit(i, &circles)).collect(),
+        })
+        .collect();
+    (complex, cuts, exact)
 }
 
 #[cfg(test)]
@@ -526,17 +637,17 @@ mod tests {
         let mut p = Project::example();
         let mut pl = Pipeline::new();
         pl.compute(&p);
-        assert_eq!(pl.last_runs, [true, true, true, true]);
+        assert_eq!(pl.last_runs, [true, true, true, true, false]);
         pl.compute(&p);
-        assert_eq!(pl.last_runs, [false, false, false, false]);
+        assert_eq!(pl.last_runs, [false, false, false, false, false]);
         if let Geometry::Point { at } = &mut p.controllers[0].geometry {
             at.x += 5.0;
         }
         pl.compute(&p);
-        assert_eq!(pl.last_runs, [false, true, true, true]);
+        assert_eq!(pl.last_runs, [false, true, true, true, false]);
         p.fabrication.min_bridge = 2.0;
         pl.compute(&p);
-        assert_eq!(pl.last_runs, [false, false, true, true]);
+        assert_eq!(pl.last_runs, [false, false, true, true, false]);
     }
 
     #[test]

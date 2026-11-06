@@ -60,13 +60,15 @@ Acceptation : chaque disposition et chaque option a un test moteur (déterminism
 
 Acceptation : découpe, fusion et îlots testés sur des cas à aire connue ; contours SVG et DXF (arcs, transformations, unités) relus par le moteur.
 
-## v0.4 — Export STEP (jalon 4)
+## v0.4 — Export STEP (jalon 4) · *à tester* (livrée le 06/11/2026)
 
 - Plaque extrudée en **B-Rep explicite** (`MANIFOLD_SOLID_BREP`) : trous ronds en vraies faces cylindriques, polygones en faces planes. L'`EXTRUDED_AREA_SOLID` suggéré dans la recherche est écarté (mal lu par les importeurs AP214, voir `docs/FEATURES.md`).
-- **Découpage en dalles** (STP Split) N × M : archive ZIP ou assemblage STEP unique.
+- **Découpage en dalles** (STP Split) N × M : archive ZIP ou assemblage STEP unique. Les coupes passent entre les perforations quand c'est possible, sinon à travers (encoches exactes).
 - **Angle de dépouille** : cônes analytiques, validation avant export (trou qui se referme, paroi percée) surlignée sur le canevas.
-- DXF : arcs exacts (*bulge*) pour les congés ; simplification Ramer-Douglas-Peucker.
-- Fiches de validation : import FreeCAD, Fusion 360, PrusaSlicer.
+- DXF : arcs exacts (*bulge*) pour les congés ; simplification Ramer-Douglas-Peucker. *Fait au-delà* : arcs retrouvés sur toutes les découpes (mode Découper, fusions), pour tous les exports.
+- Fiches de validation : import FreeCAD ([docs/validation/step-freecad.md](docs/validation/step-freecad.md)) ; Fusion 360 et PrusaSlicer à faire par l'utilisateur.
+
+Acceptation : chaque cas de la fiche FreeCAD donne des solides valides, au volume calculé.
 
 ## v0.5 — Voronoï et lignes fluides (jalon 5)
 

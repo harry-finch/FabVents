@@ -42,6 +42,11 @@ const fr = {
     projectHint: 'Fichier .fabvents.json, tous les réglages',
     png: 'PNG',
     pngHint: 'Image 300 ppp sur fond transparent (présentation, texture)',
+    step: 'STEP (AP214)',
+    stepHint: 'CAO, impression 3D : solide exact, trous cylindriques',
+    stepZip: 'STEP par dalle (ZIP)',
+    stepZipHint: '{n} dalles, un fichier STEP chacune',
+    stepBlocked: 'STEP impossible pour l’instant : voir les messages (dépouille, dalles, fixations).',
   },
   errors: {
     project: {
@@ -51,7 +56,11 @@ const fr = {
       invalid: 'projet incomplet ou invalide.',
       svg_without_project: 'ce SVG ne contient pas de projet FabVents.',
     },
-    export: { invalid_project: 'Export impossible : le motif contient des erreurs.' },
+    export: {
+      invalid_project: 'Export impossible : le motif contient des erreurs.',
+      step_blocked: 'Export STEP impossible : la dépouille ou les dalles posent problème (voir les messages).',
+      step_features_outside: 'Export STEP impossible : un trou de fixation déborde de la plaque.',
+    },
     import: { syntax: 'fichier illisible (SVG ou DXF attendu).', no_closed_contour: 'aucun contour fermé dans ce fichier.' },
     template: { unknown_size: 'gabarit inconnu.' },
   },
@@ -211,6 +220,12 @@ const fr = {
     minSizeHint: 'Les perforations plus petites sont retirées (et comptées) : trop petites pour être découpées.',
     minBridge: 'Nervure mini',
     minBridgeHint: 'Matière minimale entre deux perforations. En dessous, FabVents avertit.',
+    step: 'Export STEP',
+    draft: 'Dépouille',
+    draftHint: 'Angle des parois des perforations dans l’export STEP. Positif : le trou s’évase vers le dessous (démoulage, impression sans support) ; négatif : il se resserre. Sans effet sur le SVG et le DXF.',
+    tilesX: 'Colonnes',
+    tilesY: 'Rangées',
+    tilesHint: 'Découpe l’export STEP en dalles (plateau d’imprimante trop petit, pièce trop lourde pour la CAO). Les coupes passent entre les perforations quand c’est possible, sinon à travers, loin de leurs bords.',
   },
   canvas: {
     label: 'Canevas du motif',
@@ -400,6 +415,17 @@ const fr = {
       removed_feature: '{count} perforations retirées autour des trous de fixation et des zones réservées.',
     },
     features: { outside: '{count} trous de fixation débordent de la plaque : ils ne seront découpés qu’en partie.' },
+    fabrication: {
+      draft_range: '{field} : au plus {value}° en valeur absolue.',
+      tiles_range: '{field} : entre 1 et {value}.',
+    },
+    draft: {
+      collapse: '{count} perforations se referment (ou perdent leur arrondi) avant le dessous avec cette dépouille : réduisez l’angle.',
+      pierce: '{count} perforations touchent une voisine, un trou de fixation ou le bord au dessous de la plaque : réduisez la dépouille.',
+    },
+    tiles: {
+      draft: '{count} coupes de dalles traversent des perforations, impossible avec une dépouille : mettez-la à 0 ou changez le nombre de dalles.',
+    },
     bridge: { thin: '{count} nervures plus fines que le minimum (la plus fine : {value}).' },
   },
   fields: {
@@ -426,7 +452,7 @@ const fr = {
     },
     features: { diameter: 'Diamètre du trou', width: 'Largeur de la zone', height: 'Hauteur de la zone', corner: 'Arrondi de la zone', clearance: 'Garde' },
     shape: { size: 'Taille de la forme', rotation: 'Rotation', aspect: 'Proportions', corner: 'Arrondi', sides: 'Côtés', points: 'Branches', inner: 'Creux' },
-    fabrication: { min_size: 'Taille mini', min_bridge: 'Nervure mini' },
+    fabrication: { min_size: 'Taille mini', min_bridge: 'Nervure mini', draft: 'Dépouille', tiles_x: 'Colonnes', tiles_y: 'Rangées' },
     controllers: {
       geometry: 'Géométrie du contrôleur',
       size: { reach: 'Portée (taille)', target: 'Taille cible', cull: 'Part retirée', contrast: 'Contraste' },

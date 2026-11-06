@@ -146,6 +146,10 @@ export type EdgeMode = 'center' | 'whole' | 'clip';
 export interface Fabrication {
   min_size: number;
   min_bridge: number;
+  /** Dépouille des parois (degrés, export STEP) ; absente = 0. */
+  draft?: number;
+  /** Dalles de l'export STEP : colonnes, rangées ; absent = [1, 1]. */
+  tiles?: [number, number];
 }
 
 export type CullMode = 'center' | 'edge' | 'uniform';
@@ -273,6 +277,11 @@ export interface FrameData {
   /** Contours de la zone perforable. */
   zonePoints: Float64Array;
   zoneOffsets: Uint32Array;
+  /** Perforations en cause pour l'export STEP (dépouille). */
+  alertPoints: Float64Array;
+  alertOffsets: Uint32Array;
+  /** Coupes des dalles : nombre de coupes en x, puis les x, puis les y. */
+  tileCuts: Float64Array;
   report: Report;
   ms: number;
 }

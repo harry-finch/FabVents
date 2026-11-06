@@ -81,12 +81,15 @@ impl Plate {
     /// Contours de la zone perforable : plaque réduite de la marge, et
     /// zone perforée. Une seule forme (contour extérieur), ou aucune.
     pub fn perforable(&self) -> Vec<Vec<Vec2>> {
-        let plate = self.region().contour().tessellated(0.01);
+        let plate = self
+            .region()
+            .contour()
+            .tessellated(crate::pipeline::CUT_TOLERANCE);
         let inset = offset(&[plate], -self.margin);
         let Some(zone) = self.zone_region() else {
             return inset;
         };
-        let z = zone.contour().tessellated(0.01);
+        let z = zone.contour().tessellated(crate::pipeline::CUT_TOLERANCE);
         crate::boolean::cut(&inset, &[z], &[])
             .into_iter()
             .map(|c| c.outer)
