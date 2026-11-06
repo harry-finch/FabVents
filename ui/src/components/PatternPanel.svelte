@@ -13,7 +13,7 @@
   import { store } from '../lib/store.svelte';
   import { t } from '../lib/i18n.svelte';
   import { tip } from '../lib/tip';
-  import type { EdgeMode, GridPattern, Outline, ShapeKind, ShapeType, Zone } from '../lib/types';
+  import { shapesHoles, type EdgeMode, type FlowEnds, type GridPattern, type Outline, type ShapeKind, type ShapeType, type Zone } from '../lib/types';
 
   const p = $derived(store.p);
   const l = $derived(p.layout);
@@ -204,6 +204,30 @@
         <NumField label={t('layout.rowGap')} field="layout.row_gap" min={0} value={l.row_gap} onchange={(v) => setL('row_gap', v)} />
       {/if}
       <button class="btn" type="button" onclick={drawPath}><Spline size={14} /> {l.paths.length ? t('layout.drawAnother') : t('layout.drawPath')}</button>
+    {:else if l.mode === 'voronoi'}
+      <NumField label={t('layout.cellSize')} hint={t('layout.cellSizeHint')} field="layout.spacing" min={0} value={l.spacing} onchange={(v) => setL('spacing', v)} />
+      <NumField label={t('layout.rib')} hint={t('layout.ribHint')} field="layout.rib" min={0} value={l.rib} onchange={(v) => setL('rib', v)} />
+      <NumField label={t('layout.fillet')} hint={t('layout.filletHint')} field="layout.fillet" min={0} value={l.fillet} onchange={(v) => setL('fillet', v)} />
+      <NumField label={t('layout.relax')} hint={t('layout.relaxHint')} kind="count" field="layout.relax" min={0} max={20} value={l.relax} onchange={(v) => setL('relax', Math.round(v))} />
+      <Field label={t('layout.seed')} hint={t('layout.seedHint')}>
+        <span class="val tabular">{l.seed}</span>
+        <button class="btn quiet grow-right" type="button" use:tip={t('layout.reroll')} onclick={() => setL('seed', (l.seed % 99999) + 1)}><Dices size={14} /> {t('ctrl.rerollShort')}</button>
+      </Field>
+    {:else if l.mode === 'flow'}
+      <NumField label={t('layout.lineGap')} hint={t('layout.lineGapHint')} field="layout.spacing" min={0} value={l.spacing} onchange={(v) => setL('spacing', v)} />
+      <NumField label={t('layout.ribbon')} hint={t('layout.ribbonHint')} field="layout.width" min={0} value={l.width} onchange={(v) => setL('width', v)} />
+      <NumField label={t('layout.flowAngle')} hint={t('layout.flowAngleHint')} kind="angle" field="layout.angle" value={l.angle} onchange={(v) => setL('angle', v)} />
+      <Field label={t('layout.ends')}>
+        <Segmented
+          label={t('layout.ends')}
+          value={l.ends}
+          options={[
+            { id: 'round', label: t('layout.endsRound') },
+            { id: 'flat', label: t('layout.endsFlat') },
+          ]}
+          onchange={(v: FlowEnds) => setL('ends', v as never)}
+        />
+      </Field>
     {/if}
     {#if l.mode === 'spiral' || l.mode === 'concentric' || l.mode === 'path' || l.mode === 'fibonacci'}
       <label class="check" use:tip={t(l.mode === 'fibonacci' ? 'layout.orientRadialHint' : 'layout.orientHint')}>
@@ -220,6 +244,9 @@
   </Section>
 
   <Section id="shape" title={t('shape.title')} step={3}>
+    {#if shapesHoles(l)}
+      <p class="note">{t(l.mode === 'voronoi' ? 'shape.byVoronoi' : 'shape.byFlow')}</p>
+    {:else}
     <div class="shapes" role="radiogroup" aria-label={t('shape.type')}>
       {#each SHAPES as s (s)}
         <button
@@ -263,6 +290,7 @@
     {/if}
     {#if kind.type !== 'circle'}
       <NumField label={t('shape.rotation')} kind="angle" field="shape.rotation" value={p.shape.rotation} onchange={(v) => store.edit((q) => (q.shape.rotation = v), 'shape.rotation')} />
+    {/if}
     {/if}
   </Section>
 
@@ -341,6 +369,13 @@
     margin: var(--s1) 0 0;
     color: var(--text-secondary);
     font-size: var(--fs-sm);
+  }
+
+  .note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    line-height: 1.45;
   }
 
   .shapes {

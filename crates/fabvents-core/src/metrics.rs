@@ -4,7 +4,7 @@
 //! arrondis : exacte pour toutes les formes, sans facettisation. Les paires
 //! sont cherchées par une grille de répartition, jusqu'à `search` mm.
 
-use crate::geom::core_distance;
+use crate::geom::core_distance_within;
 use crate::pipeline::Hole;
 use serde::Serialize;
 
@@ -127,7 +127,12 @@ pub fn measure_with_overlaps(
                     let gap = if a.geom.core.len() == 1 && b.geom.core.len() == 1 {
                         d - a.geom.round - b.geom.round
                     } else {
-                        core_distance(&a.geom.core, &b.geom.core) - a.geom.round - b.geom.round
+                        core_distance_within(
+                            &a.geom.core,
+                            &b.geom.core,
+                            search + a.geom.round + b.geom.round,
+                        ) - a.geom.round
+                            - b.geom.round
                     };
                     if gap <= 1e-9 {
                         m.overlaps += 1;

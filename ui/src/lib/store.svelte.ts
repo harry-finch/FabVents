@@ -33,6 +33,8 @@ import {
   type Tab,
   type Tool,
   type Vec2,
+  baseAngle,
+  baseSize,
 } from './types';
 import type { UnitSystem } from './format';
 
@@ -515,9 +517,9 @@ class Store {
     const p = this.p;
     const ext = this.plateExtent();
     const reach = Math.max(5, Math.round(0.3 * Math.min(ext.x, ext.y)));
-    if (ch === 'size') return { reach, target: Math.round(p.shape.size * 16) / 10, hard_edge: false };
+    if (ch === 'size') return { reach, target: Math.round(baseSize(p) * 16) / 10, hard_edge: false };
     if (ch === 'spacing') return { reach, target: Math.round((baseSpacing(p.layout) ?? 8) * 5) / 10, hard_edge: false };
-    return { reach, target: p.shape.rotation + 45, hard_edge: false };
+    return { reach, target: baseAngle(p) + 45, hard_edge: false };
   }
 
   /** Unifier : donne à tous les contrôleurs du canal la portée ou la cible indiquée. */
@@ -641,6 +643,8 @@ class Store {
       fibonacci: { mode: 'fibonacci', spacing: s, divergence: GOLDEN, orient: false, ...off },
       cross_hatch: { mode: 'cross_hatch', step: s, line_spacing: s, angle: 45, cross: 90, ...off },
       path: { mode: 'path', paths: [], spacing: s, rows: 1, row_gap: s, orient: true },
+      voronoi: { mode: 'voronoi', spacing: s, relax: 3, seed: 1, rib: 1.5, fillet: 1 },
+      flow: { mode: 'flow', spacing: s, angle: 0, width: Math.max(1, Math.round(s * 4) / 10), ends: 'round' },
     };
     this.edit((p) => {
       p.layout = next[mode];
@@ -734,6 +738,15 @@ class Store {
         case 'path':
           l.spacing = r(l.spacing);
           l.row_gap = r(l.row_gap);
+          break;
+        case 'voronoi':
+          l.spacing = r(l.spacing);
+          l.rib = r(l.rib);
+          l.fillet = r(l.fillet);
+          break;
+        case 'flow':
+          l.spacing = r(l.spacing);
+          l.width = r(l.width);
           break;
       }
     }, 'plate.size');

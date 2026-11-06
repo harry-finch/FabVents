@@ -1,6 +1,6 @@
 # État du projet
 
-**Jalon** : **v0.4 — export STEP**, livrée pour essai (06/11/2026). v0.1 à v0.3 validées par l'utilisateur. Prochain jalon : v0.5 (Voronoï et lignes fluides), voir [ROADMAP.md](ROADMAP.md).
+**Jalon** : **v0.5 — Voronoï et lignes fluides**, livrée pour essai (06/11/2026). v0.1 à v0.4 validées par l'utilisateur. Prochain jalon : v0.6 (atelier de formes et morphing), voir [ROADMAP.md](ROADMAP.md).
 
 | Élément | État |
 | --- | --- |
@@ -12,9 +12,10 @@
 | Mesures | Taux d'ouverture exact (chevauchements, découpe, îlots) |
 | Exports | SVG, DXF R12, projet, PNG 300 dpi, **STEP** AP214 (B-Rep explicite : cylindres, cônes en dépouille), **STEP par dalle** (ZIP) ; découpes en arcs exacts dans tous les exports |
 | Export STEP | Fabrication → Export STEP : dépouille (± 45°), dalles colonnes × rangées (1 à 20) ; perforations en cause en rouge, coupes des dalles en pointillés ; export refusé avec la raison si la dépouille ferme ou perce une paroi, si une coupe traverse une paroi en dépouille, si un trou de fixation déborde |
+| Dispositions v0.5 | **Voronoï** (taille des cellules, nervure, congé, relaxation de Lloyd pondérée, tirage) ; **lignes fluides** (écart, largeur, direction, bouts ronds ou plats) ; canaux Taille, Espacement et Angle repris (nervure / largeur, densité / écart, direction) |
 | Fichiers | Format de projet v4 ; v1 à v3 se lisent tels quels |
-| Tests | `cargo test --workspace` : 121 tests verts ; clippy : 0 avertissement ; `npm run check` : 0 erreur ; `npm run build` |
-| Vérifié | FreeCAD : neuf cas de STEP valides au volume calculé ([fiche](docs/validation/step-freecad.md)). Navigateur : gabarit 120 mm en dalles 3 × 2 (coupes affichées), dépouille 8° avec dalles refusée, dépouille 40° (595 perforations en rouge, STEP grisé avec la raison), STEP à 3° téléchargé (1 198 cônes), ZIP de 4 dalles, thème clair à 1 100 px |
+| Tests | `cargo test --workspace` : 129 tests verts ; clippy : 0 avertissement ; `npm run check` : 0 erreur ; `npm run build` |
+| Vérifié | FreeCAD : neuf cas STEP de la v0.4 et cinq panneaux Voronoï / lignes fluides valides au volume calculé. Rendus Inkscape : densité et nervures variables (Voronoï), rubans courbés de largeur variable. Navigateur : passage au Voronoï et aux lignes fluides sur le gabarit 120 mm. Mesures natives : 930 cellules en 23 ms, 47 rubans en 80 ms |
 | Non vérifié | STEP dans Fusion 360, PrusaSlicer, SolidWorks ; DXF réels importés ; exports relus dans LightBurn ; découpe et impression d'une pièce |
 
 ## Points ouverts
@@ -25,7 +26,9 @@
 - Importer un contour garde les éléments de plaque existants (ceux d'un gabarit peuvent alors déborder : signalé, et l'export STEP est refusé).
 - Le taux d'ouverture est mesuré sur les polygones fins des découpes : jusqu'à 0,1 % d'écart avec le volume exact du STEP sur les motifs très fusionnés.
 - Dépouille et dalles ensemble : seulement si toutes les coupes trouvent un intervalle libre entre les perforations.
+- Voronoï : la relaxation de Lloyd atténue les variations de densité (deux fois plus de cellules près d'un contrôleur qui divise l'espacement par deux, au lieu de quatre) ; bord en escalier hors plaque rectangulaire sans le mode Découper.
+- Lignes fluides : semées sur la transverse au centre ; une zone qu'elle ne traverse pas reste vide ; bouts ronds facettisés dans le STEP.
 
 ## Prochaine action
 
-Tester la v0.4 (liste dans le message de livraison), en particulier l'import du STEP dans Fusion 360 et PrusaSlicer.
+Tester la v0.5 (liste dans le message de livraison), puis lancer la v0.6.

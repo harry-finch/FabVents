@@ -223,7 +223,7 @@ pub fn fit(pts: &[Vec2], circles: &Circles) -> Contour {
                 let mut chain: Vec<Vec2> = vec![a];
                 chain.extend((1..len).map(|s| pts[(from + s) % n]));
                 chain.push(b);
-                for p in simplify(&chain) {
+                for p in simplify(&chain, COLLINEAR) {
                     out.push(Vertex { p, bulge: 0.0 });
                 }
             }
@@ -267,9 +267,10 @@ fn intersect(a: Support, b: Support) -> Vec<Vec2> {
     }
 }
 
-/// Ramer-Douglas-Peucker sur une chaîne ouverte, sans le dernier point.
-fn simplify(chain: &[Vec2]) -> Vec<Vec2> {
-    fn rec(chain: &[Vec2], out: &mut Vec<Vec2>) {
+/// Ramer-Douglas-Peucker sur une chaîne ouverte, sans le dernier point
+/// (une chaîne qui revient à son départ donne un polygone fermé).
+pub fn simplify(chain: &[Vec2], tol: f64) -> Vec<Vec2> {
+    fn rec(chain: &[Vec2], tol: f64, out: &mut Vec<Vec2>) {
         let (a, b) = (chain[0], chain[chain.len() - 1]);
         let (mut far, mut idx) = (0.0, 0);
         for (k, &p) in chain.iter().enumerate().take(chain.len() - 1).skip(1) {
@@ -279,16 +280,16 @@ fn simplify(chain: &[Vec2]) -> Vec<Vec2> {
                 idx = k;
             }
         }
-        if far > COLLINEAR {
-            rec(&chain[..=idx], out);
-            rec(&chain[idx..], out);
+        if far > tol {
+            rec(&chain[..=idx], tol, out);
+            rec(&chain[idx..], tol, out);
         } else {
             out.push(a);
         }
     }
     let mut out = Vec::new();
     if chain.len() >= 2 {
-        rec(chain, &mut out);
+        rec(chain, tol, &mut out);
     }
     out
 }

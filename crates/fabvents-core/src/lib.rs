@@ -22,6 +22,7 @@ pub mod curve;
 pub mod export;
 pub mod field;
 pub mod fit;
+pub mod flow;
 pub mod geom;
 pub mod import;
 pub mod issue;
@@ -37,6 +38,7 @@ pub mod shape;
 pub mod solid;
 pub mod templates;
 pub mod validate;
+pub mod voronoi;
 
 pub use contour::{Contour, Vertex};
 pub use geom::Vec2;

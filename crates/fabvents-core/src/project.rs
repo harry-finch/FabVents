@@ -263,6 +263,8 @@ pub enum Layout {
     Fibonacci(Fibonacci),
     CrossHatch(CrossHatch),
     Path(PathLayout),
+    Voronoi(Voronoi),
+    Flow(Flow),
 }
 
 impl Layout {
@@ -276,6 +278,25 @@ impl Layout {
             Layout::Concentric(l) => Some(l.spacing),
             Layout::Fibonacci(l) => Some(l.spacing),
             Layout::Path(l) => Some(l.spacing),
+            Layout::Voronoi(l) => Some(l.spacing),
+            Layout::Flow(l) => Some(l.spacing),
+        }
+    }
+
+    /// La disposition donne-t-elle elle-même la forme des perforations
+    /// (cellules de Voronoï, rubans des lignes fluides) ? Le canal Taille y
+    /// règle alors la nervure ou la largeur du ruban.
+    pub fn shapes_holes(&self) -> bool {
+        matches!(self, Layout::Voronoi(_) | Layout::Flow(_))
+    }
+
+    /// Valeur de base du canal Taille : nervure (Voronoï), largeur du ruban
+    /// (lignes fluides), sinon taille de la forme.
+    pub fn base_size(&self, shape: &Shape) -> f64 {
+        match self {
+            Layout::Voronoi(l) => l.rib,
+            Layout::Flow(l) => l.width,
+            _ => shape.size,
         }
     }
 }
@@ -485,6 +506,70 @@ pub struct PathLayout {
     pub row_gap: f64,
     /// Formes orientées selon le tracé.
     pub orient: bool,
+}
+
+/// Voronoï : cellules autour de germes Poisson-disc (densité du canal
+/// Espacement), régularisées par une relaxation de Lloyd pondérée ; chaque
+/// cellule est réduite de la demi-nervure et arrondie de `fillet`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Voronoi {
+    /// Taille moyenne des cellules (mm), base du canal Espacement.
+    pub spacing: f64,
+    /// Itérations de la relaxation de Lloyd (0 : cellules brutes).
+    pub relax: u32,
+    pub seed: u64,
+    /// Nervure entre deux cellules (mm), base du canal Taille.
+    pub rib: f64,
+    /// Rayon des congés aux sommets (mm).
+    pub fillet: f64,
+}
+
+impl Default for Voronoi {
+    fn default() -> Self {
+        Self {
+            spacing: 10.0,
+            relax: 3,
+            seed: 1,
+            rib: 1.5,
+            fillet: 1.0,
+        }
+    }
+}
+
+/// Extrémités d'un ruban de ligne fluide.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FlowEnds {
+    #[default]
+    Round,
+    Flat,
+}
+
+/// Lignes fluides : rubans qui suivent un champ de directions (angle de
+/// base + canal Angle), espacés selon le canal Espacement, de largeur
+/// donnée par le canal Taille.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Flow {
+    /// Écart entre deux lignes (mm), base du canal Espacement.
+    pub spacing: f64,
+    /// Direction de base des lignes (degrés), base du canal Angle.
+    pub angle: f64,
+    /// Largeur des rubans (mm), base du canal Taille.
+    pub width: f64,
+    pub ends: FlowEnds,
+}
+
+impl Default for Flow {
+    fn default() -> Self {
+        Self {
+            spacing: 8.0,
+            angle: 0.0,
+            width: 3.0,
+            ends: FlowEnds::Round,
+        }
+    }
 }
 
 impl Default for PathLayout {

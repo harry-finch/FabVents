@@ -90,3 +90,19 @@ Thème, style graphique et philosophie UX de la famille Fab réunis dans une ski
 - Îlots en triangle d'arcs concaves refusés par FreeCAD : coordonnées à 10 décimales au lieu de 7.
 - Raccords entre deux arcs restés en petits segments : tolérance « sur le cercle » portée à 3 µm et raccords recalés sur l'intersection exacte.
 - Trou de fixation à cheval sur le bord : solide invalide ; export STEP refusé (`export.step_features_outside`).
+
+## 2026-11-06 — v0.4 validée ; v0.5 : Voronoï et lignes fluides
+
+v0.4 validée par l'utilisateur.
+
+**Choix** (ADR-0009).
+- Voronoï maison par demi-plans, relaxation de Lloyd pondérée par la densité ; perforation = cellule réduite (âme convexe) + congé (arrondi) : nervures exactes, STEP à cylindres aux sommets sans code dédié.
+- Lignes fluides : lignes de courant semées sur une transverse, écart minimal entre lignes, rubans de largeur variable nettoyés par `i_overlay`.
+- La disposition peut imposer le contour d'une perforation (`Seed::shape`) ; les canaux Taille, Espacement et Angle y règlent nervure / largeur, densité / écart, direction.
+
+**Vérification.** 129 tests ; cinq panneaux STEP valides dans FreeCAD ; rendus Inkscape ; parcours dans le navigateur ; mesures natives (930 cellules en 23 ms).
+
+**Défauts corrigés pendant la vérification.**
+- Cellules manquantes le long d'un bord : la boîte des cellules, élargie de la demi-nervure, plaçait la perforation exactement sur la marge (test « trou entier » au millionième) ; boîte ramenée à la zone perforable.
+- Mesure des nervures entre rubans en 1,1 s (toutes les paires de segments) : grille de segments limitée au rayon de recherche, 50 ms.
+- Rubans qui se chevauchaient quand la largeur augmente : écart minimal entre lignes porté à 1,25 largeur.

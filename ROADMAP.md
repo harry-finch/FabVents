@@ -60,7 +60,7 @@ Acceptation : chaque disposition et chaque option a un test moteur (déterminism
 
 Acceptation : découpe, fusion et îlots testés sur des cas à aire connue ; contours SVG et DXF (arcs, transformations, unités) relus par le moteur.
 
-## v0.4 — Export STEP (jalon 4) · *à tester* (livrée le 06/11/2026)
+## v0.4 — Export STEP (jalon 4) · *validée*
 
 - Plaque extrudée en **B-Rep explicite** (`MANIFOLD_SOLID_BREP`) : trous ronds en vraies faces cylindriques, polygones en faces planes. L'`EXTRUDED_AREA_SOLID` suggéré dans la recherche est écarté (mal lu par les importeurs AP214, voir `docs/FEATURES.md`).
 - **Découpage en dalles** (STP Split) N × M : archive ZIP ou assemblage STEP unique. Les coupes passent entre les perforations quand c'est possible, sinon à travers (encoches exactes).
@@ -70,10 +70,12 @@ Acceptation : découpe, fusion et îlots testés sur des cas à aire connue ; co
 
 Acceptation : chaque cas de la fiche FreeCAD donne des solides valides, au volume calculé.
 
-## v0.5 — Voronoï et lignes fluides (jalon 5)
+## v0.5 — Voronoï et lignes fluides (jalon 5) · *à tester* (livrée le 06/11/2026)
 
 - **Voronoï** : relaxation de Lloyd, nervures d'épaisseur variable (canal Taille), congés aux sommets, densité par le canal Espacement.
 - **Lignes fluides** : rubans d'épaisseur variable, canaux remappés (épaisseur, espacement, courbure, direction), extrémités plates ou rondes, nettoyage des auto-intersections.
+
+Acceptation : nervures de Voronoï exactes (mesurées au micron), densité suivant le canal Espacement, rubans sans chevauchement, STEP valides dans FreeCAD.
 
 ## v0.6 — Atelier de formes et morphing (jalon 6)
 

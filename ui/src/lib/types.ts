@@ -117,9 +117,61 @@ export interface PathLayout {
   orient: boolean;
 }
 
-export type Layout = GridLayout | RandomLayout | SpiralLayout | ConcentricLayout | FibonacciLayout | CrossHatchLayout | PathLayout;
+/** Voronoï : cellules réduites de la demi-nervure, arrondies du congé. */
+export interface VoronoiLayout {
+  mode: 'voronoi';
+  spacing: number;
+  relax: number;
+  seed: number;
+  /** Nervure (mm), base du canal Taille. */
+  rib: number;
+  fillet: number;
+}
+
+export type FlowEnds = 'round' | 'flat';
+
+/** Lignes fluides : rubans le long d'un champ de directions. */
+export interface FlowLayout {
+  mode: 'flow';
+  spacing: number;
+  /** Direction de base (degrés), base du canal Angle. */
+  angle: number;
+  /** Largeur des rubans (mm), base du canal Taille. */
+  width: number;
+  ends: FlowEnds;
+}
+
+export type Layout =
+  | GridLayout
+  | RandomLayout
+  | SpiralLayout
+  | ConcentricLayout
+  | FibonacciLayout
+  | CrossHatchLayout
+  | PathLayout
+  | VoronoiLayout
+  | FlowLayout;
 export type LayoutMode = Layout['mode'];
-export const LAYOUT_MODES: LayoutMode[] = ['grid', 'random', 'spiral', 'concentric', 'fibonacci', 'cross_hatch', 'path'];
+export const LAYOUT_MODES: LayoutMode[] = ['grid', 'random', 'spiral', 'concentric', 'fibonacci', 'cross_hatch', 'path', 'voronoi', 'flow'];
+
+/** La disposition donne-t-elle la forme des perforations (cellules, rubans) ? */
+export const shapesHoles = (l: Layout) => l.mode === 'voronoi' || l.mode === 'flow';
+
+/** Valeur de base du canal Taille : nervure, largeur de ruban ou taille de la forme. */
+export function baseSize(p: Project): number {
+  const l = p.layout;
+  return l.mode === 'voronoi' ? l.rib : l.mode === 'flow' ? l.width : p.shape.size;
+}
+
+/** Champ du moteur qui porte la valeur de base du canal Taille. */
+export function baseSizeField(l: Layout): string {
+  return l.mode === 'voronoi' ? 'layout.rib' : l.mode === 'flow' ? 'layout.width' : 'shape.size';
+}
+
+/** Valeur de base du canal Angle : direction des lignes fluides, sinon rotation de la forme. */
+export function baseAngle(p: Project): number {
+  return p.layout.mode === 'flow' ? p.layout.angle : p.shape.rotation;
+}
 
 /** Valeur de base du canal Espacement (null : la disposition ne le suit pas). */
 export function baseSpacing(l: Layout): number | null {

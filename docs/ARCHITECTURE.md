@@ -34,7 +34,9 @@ Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`, `i_ov
 | `boolean` | Booléens `i_overlay` : décalage d'un contour, union des perforations coupée par la zone et privée des zones réservées, îlots. |
 | `import` | Contour importé d'un SVG (chemins, formes, transformations, unités) ou d'un DXF (polylignes à *bulge*, cercles, ellipses, lignes et arcs chaînés) : contour extérieur et découpes intérieures. |
 | `templates` | Gabarits de grilles de ventilateur 40 à 140 mm (entraxe, Ø des vis, ouverture). |
-| `layout` | Dispositions → germes (position, angle propre) : grille, aléatoire (Bridson à rayon variable), spirale, concentrique, Fibonacci, hachures croisées, chemin. Les dispositions à espacement libre lisent le canal Espacement. |
+| `layout` | Dispositions → germes (position, angle propre, contour imposé) : grille, aléatoire (Bridson à rayon variable), spirale, concentrique, Fibonacci, hachures croisées, chemin, Voronoï (cellules), lignes fluides (polylignes). Les dispositions à espacement libre lisent le canal Espacement. |
+| `voronoi` | Cellules par découpe de demi-plans, relaxation de Lloyd pondérée par la densité voulue, réduction exacte d'une cellule (nervure). |
+| `flow` | Lignes fluides : lignes de courant (Runge-Kutta 2) semées sur une transverse, écart minimal entre lignes, arrêt au bord et aux trous de fixation ; rubans de largeur variable nettoyés par `i_overlay`. |
 | `curve` | Tracés : aplatissement à congés, subdivision, décalage parallèle, distance et côté (avec prolongement), placement à espacement variable le long d'un tracé. |
 | `raster` | Image d'un contrôleur : décodage base64, luminance bilinéaire en un point de la plaque. |
 | `rng` | Aléatoire reproductible (SplitMix64) et tirage attaché à une position. |

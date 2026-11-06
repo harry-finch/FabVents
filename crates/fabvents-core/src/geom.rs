@@ -225,6 +225,62 @@ pub fn core_distance(a: &[Vec2], b: &[Vec2]) -> f64 {
     best
 }
 
+/// Distance entre deux âmes si elle est inférieure à `limit`, sinon
+/// `f64::INFINITY`. Les longues âmes (rubans) passent par une grille de
+/// segments au lieu de comparer toutes les paires.
+pub fn core_distance_within(a: &[Vec2], b: &[Vec2], limit: f64) -> f64 {
+    if a.len() * b.len() <= 4096 {
+        let d = core_distance(a, b);
+        return if d < limit { d } else { f64::INFINITY };
+    }
+    if (a.len() >= 3 && point_in_polygon(b[0], a)) || (b.len() >= 3 && point_in_polygon(a[0], b)) {
+        return 0.0;
+    }
+    let sa = core_segments(a);
+    let sb = core_segments(b);
+    let cell = limit.max(0.5);
+    let key = |x: f64, y: f64| ((x / cell).floor() as i64, (y / cell).floor() as i64);
+    let mut grid: std::collections::HashMap<(i64, i64), Vec<usize>> =
+        std::collections::HashMap::new();
+    for (k, &(p, q)) in sb.iter().enumerate() {
+        let (x0, y0) = key(p.x.min(q.x) - limit, p.y.min(q.y) - limit);
+        let (x1, y1) = key(p.x.max(q.x) + limit, p.y.max(q.y) + limit);
+        for gx in x0..=x1 {
+            for gy in y0..=y1 {
+                grid.entry((gx, gy)).or_default().push(k);
+            }
+        }
+    }
+    let mut best = f64::INFINITY;
+    let mut seen = Vec::new();
+    for &(p, q) in &sa {
+        let (x0, y0) = key(p.x.min(q.x), p.y.min(q.y));
+        let (x1, y1) = key(p.x.max(q.x), p.y.max(q.y));
+        seen.clear();
+        for gx in x0..=x1 {
+            for gy in y0..=y1 {
+                if let Some(v) = grid.get(&(gx, gy)) {
+                    seen.extend_from_slice(v);
+                }
+            }
+        }
+        seen.sort_unstable();
+        seen.dedup();
+        for &k in &seen {
+            let (r, s) = sb[k];
+            best = best.min(dist_segment_segment(p, q, r, s));
+            if best == 0.0 {
+                return 0.0;
+            }
+        }
+    }
+    if best < limit {
+        best
+    } else {
+        f64::INFINITY
+    }
+}
+
 /// Angle d'un arc de « bulge » DXF : `bulge = tan(angle / 4)`, positif dans le
 /// sens trigonométrique.
 pub fn bulge_angle(bulge: f64) -> f64 {

@@ -3,11 +3,12 @@
 //! spirale, concentrique, Fibonacci, chemin) suivent le canal Espacement.
 
 use crate::curve::{densify, flatten, offset, place_along};
-use crate::field::ChannelField;
+use crate::field::{ChannelField, Field};
 use crate::geom::{Vec2, DEG};
 use crate::issue::{Issue, Severity};
 use crate::project::{
-    Concentric, CrossHatch, Fibonacci, Grid, GridPattern, Layout, PathLayout, Plate, Random, Spiral,
+    Channel, Concentric, CrossHatch, Feature, Fibonacci, Flow, Grid, GridPattern, Layout,
+    PathLayout, Plate, Random, Spiral, Voronoi,
 };
 use crate::rng::Rng;
 use std::f64::consts::{FRAC_1_SQRT_2, TAU};
@@ -21,24 +22,162 @@ const MAX_CELLS: f64 = 8.0e6;
 /// Sommets maximaux des tracés denses (spirale, anneaux, chemins).
 const MAX_DENSE: usize = 2_000_000;
 
-/// Position d'un germe et angle propre à la disposition (degrés).
+/// Position d'un germe et angle propre à la disposition (degrés). `shape` :
+/// rang de son contour dans [`Seeds::shapes`] quand la disposition donne la
+/// forme (cellule de Voronoï, ligne fluide).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Seed {
     pub pos: Vec2,
     pub angle: f64,
+    pub shape: Option<u32>,
+}
+
+/// Germes d'une disposition et contours qu'elle impose.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Seeds {
+    pub seeds: Vec<Seed>,
+    /// Cellules de Voronoï (polygones convexes) ou lignes fluides (polylignes).
+    pub shapes: Vec<Vec<Vec2>>,
 }
 
 pub fn seeds(layout: &Layout, plate: &Plate, spacing: &ChannelField) -> Result<Vec<Seed>, Issue> {
+    Ok(layout_seeds(layout, plate, &[], spacing, &Field::new(&[]))?.seeds)
+}
+
+/// Germes et contours imposés. `spacing` : canal Espacement ; `field` :
+/// tous les contrôleurs (les lignes fluides suivent aussi les canaux Angle
+/// et Taille) ; `features` : trous de fixation que contournent les lignes.
+pub fn layout_seeds(
+    layout: &Layout,
+    plate: &Plate,
+    features: &[Feature],
+    spacing: &ChannelField,
+    field: &Field,
+) -> Result<Seeds, Issue> {
     let raw = match layout {
-        Layout::Grid(g) => return grid(g, plate),
+        Layout::Voronoi(v) => return voronoi(v, plate, spacing),
+        Layout::Flow(f) => return flow(f, plate, features, spacing, field),
         Layout::CrossHatch(c) => cross_hatch(c, plate)?,
         Layout::Random(r) => random(r, plate, spacing)?,
         Layout::Spiral(s) => spiral(s, plate, spacing)?,
         Layout::Concentric(c) => concentric(c, plate, spacing)?,
         Layout::Fibonacci(f) => fibonacci(f, plate, spacing)?,
         Layout::Path(p) => path(p, spacing)?,
+        Layout::Grid(g) => {
+            return Ok(Seeds {
+                seeds: grid(g, plate)?,
+                shapes: Vec::new(),
+            })
+        }
     };
-    Ok(inside_extent(raw, plate))
+    Ok(Seeds {
+        seeds: inside_extent(raw, plate),
+        shapes: Vec::new(),
+    })
+}
+
+/// Voronoï : germes Poisson-disc, relaxation de Lloyd pondérée par la
+/// densité voulue (`1 / espacement²`), cellules bornées par la boîte de la
+/// zone perforable : au bord, la matière vaut la marge plus une demi-nervure.
+fn voronoi(v: &Voronoi, plate: &Plate, field: &ChannelField) -> Result<Seeds, Issue> {
+    let rnd = Random {
+        spacing: v.spacing,
+        seed: v.seed,
+    };
+    let (sp, lo_s, _) = spacing_fn(field, v.spacing);
+    let area = plate.perforable();
+    let (mut lo, mut hi) = (
+        Vec2::new(f64::INFINITY, f64::INFINITY),
+        Vec2::new(f64::NEG_INFINITY, f64::NEG_INFINITY),
+    );
+    for p in area.iter().flatten() {
+        lo = Vec2::new(lo.x.min(p.x), lo.y.min(p.y));
+        hi = Vec2::new(hi.x.max(p.x), hi.y.max(p.y));
+    }
+    if !(lo.x < hi.x && lo.y < hi.y) {
+        return Ok(Seeds::default());
+    }
+    let inside = |p: &Vec2| p.x >= lo.x && p.y >= lo.y && p.x <= hi.x && p.y <= hi.y;
+    let mut pts: Vec<Vec2> = random(&rnd, plate, field)?
+        .into_iter()
+        .map(|s| s.pos)
+        .filter(inside)
+        .collect();
+    let weight = |q: Vec2| {
+        let s = sp(q);
+        1.0 / (s * s)
+    };
+    for _ in 0..v.relax {
+        let cells = crate::voronoi::cells(&pts, lo, hi, lo_s);
+        pts = cells
+            .iter()
+            .zip(&pts)
+            .map(|(c, &p)| {
+                if c.len() >= 3 {
+                    crate::voronoi::weighted_centroid(c, &weight)
+                } else {
+                    p
+                }
+            })
+            .collect();
+    }
+    let cells = crate::voronoi::cells(&pts, lo, hi, lo_s);
+    let mut out = Seeds::default();
+    for c in cells.into_iter().filter(|c| c.len() >= 3) {
+        let pos = crate::voronoi::weighted_centroid(&c, &|_| 1.0);
+        out.seeds.push(Seed {
+            pos,
+            angle: 0.0,
+            shape: Some(out.shapes.len() as u32),
+        });
+        out.shapes.push(c);
+    }
+    Ok(out)
+}
+
+/// Lignes fluides : lignes de courant et leur point milieu comme germe.
+fn flow(
+    f: &Flow,
+    plate: &Plate,
+    features: &[Feature],
+    spacing: &ChannelField,
+    field: &Field,
+) -> Result<Seeds, Issue> {
+    let (sp, _, _) = spacing_fn(spacing, f.spacing);
+    let region = plate.region();
+    let zone = plate.zone_region();
+    let keepouts: Vec<(crate::region::Region, f64)> = features
+        .iter()
+        .map(|ft| (crate::pipeline::feature_region(ft), ft.clearance))
+        .collect();
+    let bounds = crate::flow::Bounds {
+        plate: &region,
+        margin: plate.margin,
+        zone: zone.as_ref(),
+        keepouts: &keepouts,
+    };
+    let size = field.channel(Channel::Size);
+    let width = |p: Vec2| size.value(f.width, p).max(0.0);
+    let lines = crate::flow::streamlines(
+        f,
+        plate.center(),
+        0.5 * plate.extent().length(),
+        &bounds,
+        &sp,
+        &field.channel(Channel::Angle),
+        &width,
+    )
+    .map_err(|n| too_many("layout.spacing", n))?;
+    let mut out = Seeds::default();
+    for l in lines {
+        out.seeds.push(Seed {
+            pos: l[l.len() / 2],
+            angle: 0.0,
+            shape: Some(out.shapes.len() as u32),
+        });
+        out.shapes.push(l);
+    }
+    Ok(out)
 }
 
 fn too_many(field: &str, n: usize) -> Issue {
@@ -86,6 +225,7 @@ fn along(
     let placed =
         place_along(pts, closed, s, 0.0, left).map_err(|n| too_many(field, out.len() + n))?;
     out.extend(placed.into_iter().map(|q| Seed {
+        shape: None,
         pos: q.pos,
         angle: if orient { q.angle } else { 0.0 },
     }));
@@ -179,7 +319,11 @@ fn random(r: &Random, plate: &Plate, field: &ChannelField) -> Result<Vec<Seed>, 
     }
     Ok(pts
         .into_iter()
-        .map(|pos| Seed { pos, angle: 0.0 })
+        .map(|pos| Seed {
+            pos,
+            angle: 0.0,
+            shape: None,
+        })
         .collect())
 }
 
@@ -226,7 +370,11 @@ fn concentric(c: &Concentric, plate: &Plate, field: &ChannelField) -> Result<Vec
     for k in 0..rings {
         let r = c.start + k as f64 * c.pitch;
         if r < 1e-9 {
-            out.push(Seed { pos: o, angle: 0.0 });
+            out.push(Seed {
+                pos: o,
+                angle: 0.0,
+                shape: None,
+            });
             continue;
         }
         let n = ((TAU * r / ds).ceil() as usize).max(24);
@@ -266,6 +414,7 @@ fn fibonacci(f: &Fibonacci, plate: &Plate, field: &ChannelField) -> Result<Vec<S
         out.push(Seed {
             pos,
             angle: if f.orient { a.to_degrees() } else { 0.0 },
+            shape: None,
         });
         if out.len() > MAX_CANDIDATES {
             return Err(too_many("layout.spacing", out.len()));
@@ -294,10 +443,12 @@ fn cross_hatch(c: &CrossHatch, plate: &Plate) -> Result<Vec<Seed>, Issue> {
         for i in -ni..=ni {
             let node = o + u * i as f64 + w * j as f64;
             out.push(Seed {
+                shape: None,
                 pos: node + u * 0.5,
                 angle: c.angle,
             });
             out.push(Seed {
+                shape: None,
                 pos: node + w * 0.5,
                 angle: c.angle + c.cross,
             });
@@ -375,6 +526,7 @@ pub(crate) fn grid(g: &Grid, plate: &Plate) -> Result<Vec<Seed>, Issue> {
             out.push(Seed {
                 pos,
                 angle: g.angle + j as f64 * g.row_twist + i as f64 * g.col_twist,
+                shape: None,
             });
         }
     }

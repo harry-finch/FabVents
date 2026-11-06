@@ -12,6 +12,8 @@ use crate::raster::Luma;
 
 pub const MAX_POLYGON_SIDES: u32 = 64;
 pub const MAX_PATH_ROWS: u32 = 50;
+/// Itérations de Lloyd au plus.
+pub const MAX_RELAX: u32 = 20;
 /// Dépouille maximale (degrés).
 pub const MAX_DRAFT: f64 = 45.0;
 /// Dalles au plus par direction.
@@ -139,6 +141,19 @@ pub fn validate(p: &Project) -> Vec<Issue> {
             finite(l.cross, "layout.cross", &mut out);
             finite(l.offset_x, "layout.offset_x", &mut out);
             finite(l.offset_y, "layout.offset_y", &mut out);
+        }
+        Layout::Voronoi(l) => {
+            positive(l.spacing, "layout.spacing", &mut out);
+            non_negative(l.rib, "layout.rib", &mut out);
+            non_negative(l.fillet, "layout.fillet", &mut out);
+            if l.relax > MAX_RELAX {
+                out.push(Issue::error("value.out_of_range", "layout.relax").value(l.relax as f64));
+            }
+        }
+        Layout::Flow(l) => {
+            positive(l.spacing, "layout.spacing", &mut out);
+            positive(l.width, "layout.width", &mut out);
+            finite(l.angle, "layout.angle", &mut out);
         }
         Layout::Path(l) => {
             positive(l.spacing, "layout.spacing", &mut out);

@@ -22,11 +22,11 @@ use crate::field::Field;
 use crate::fit::{fit, Circles};
 use crate::geom::Vec2;
 use crate::issue::{Issue, Severity};
-use crate::layout::{seeds, Seed};
+use crate::layout::{layout_seeds, Seeds};
 use crate::metrics::{measure_with_overlaps, Metrics};
 use crate::project::{
-    Channel, Controller, EdgeMode, Fabrication, Feature, FeatureShape, Layout, Plate, Project,
-    Shape,
+    Channel, Controller, EdgeMode, Fabrication, Feature, FeatureShape, FlowEnds, Layout, Plate,
+    Project, Shape,
 };
 use crate::region::Region;
 use crate::shape::{hole_geometry, HoleGeometry};
@@ -102,8 +102,11 @@ impl Frame<'_> {
 struct SeedsKey {
     layout: Layout,
     plate: Plate,
-    /// Contrôleurs du canal Espacement (seulement pour les dispositions qui le suivent).
+    /// Contrôleurs qui comptent pour les germes : canal Espacement pour les
+    /// dispositions qui le suivent, tous pour les lignes fluides.
     spacing: Vec<Controller>,
+    /// Trous de fixation que contournent les lignes fluides.
+    features: Vec<Feature>,
 }
 
 #[derive(PartialEq)]
@@ -134,7 +137,7 @@ struct MetricsKey {
 #[derive(Default)]
 pub struct Pipeline {
     seeds_key: Option<SeedsKey>,
-    seeds: Vec<Seed>,
+    seeds: Seeds,
     seeds_error: Option<Issue>,
     seeds_gen: u64,
     holes_key: Option<HolesKey>,
@@ -183,7 +186,10 @@ impl Pipeline {
         }
 
         // Étage 1 : germes.
-        let spacing: Vec<Controller> = if p.layout.base_spacing().is_some() {
+        let is_flow = matches!(p.layout, Layout::Flow(_));
+        let spacing: Vec<Controller> = if is_flow {
+            p.controllers.clone()
+        } else if p.layout.base_spacing().is_some() {
             p.controllers
                 .iter()
                 .filter(|c| c.spacing.is_some())
@@ -196,17 +202,28 @@ impl Pipeline {
             layout: p.layout.clone(),
             plate: p.plate.clone(),
             spacing,
+            features: if is_flow {
+                p.features.clone()
+            } else {
+                Vec::new()
+            },
         };
         if self.seeds_key.as_ref() != Some(&key) {
             let field = Field::new(&key.spacing);
-            let result = seeds(&p.layout, &p.plate, &field.channel(Channel::Spacing));
+            let result = layout_seeds(
+                &p.layout,
+                &p.plate,
+                &key.features,
+                &field.channel(Channel::Spacing),
+                &field,
+            );
             match result {
                 Ok(s) => {
                     self.seeds = s;
                     self.seeds_error = None;
                 }
                 Err(e) => {
-                    self.seeds.clear();
+                    self.seeds = Seeds::default();
                     self.seeds_error = Some(e);
                 }
             }
@@ -416,7 +433,44 @@ pub fn feature_region(f: &Feature) -> Region {
     }
 }
 
-fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
+/// Perforation d'une cellule de Voronoï : cellule réduite de la
+/// demi-nervure et du congé, arrondie du congé. `None` si elle disparaît.
+fn cell_geometry(cell: &[Vec2], center: Vec2, rib: f64, fillet: f64) -> Option<HoleGeometry> {
+    let core = crate::voronoi::inset(cell, rib / 2.0 + fillet)?;
+    let perimeter: f64 = (0..core.len())
+        .map(|i| core[i].distance(core[(i + 1) % core.len()]))
+        .sum();
+    let area = crate::geom::signed_area(&core)
+        + perimeter * fillet
+        + std::f64::consts::PI * fillet * fillet;
+    let bound = core.iter().map(|v| v.distance(center)).fold(0.0, f64::max) + fillet;
+    Some(HoleGeometry {
+        core,
+        round: fillet,
+        bound,
+        area,
+    })
+}
+
+/// Perforation d'une ligne fluide : son ruban.
+fn ribbon_geometry(
+    line: &[Vec2],
+    center: Vec2,
+    width: &dyn Fn(Vec2) -> f64,
+    ends: FlowEnds,
+) -> Option<HoleGeometry> {
+    let core = crate::flow::ribbon(line, width, ends)?;
+    let bound = core.iter().map(|v| v.distance(center)).fold(0.0, f64::max);
+    let area = crate::geom::signed_area(&core).abs();
+    Some(HoleGeometry {
+        core,
+        round: 0.0,
+        bound,
+        area,
+    })
+}
+
+fn build_holes(p: &Project, seeds: &Seeds) -> (Vec<Hole>, Stats) {
     let field = Field::new(&p.controllers);
     let size_field = field.channel(Channel::Size);
     let angle_field = field.channel(Channel::Angle);
@@ -430,21 +484,27 @@ fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
         .collect();
     let clip = p.edge == EdgeMode::Clip;
     let mut stats = Stats {
-        seeds: seeds.len(),
+        seeds: seeds.seeds.len(),
         ..Stats::default()
     };
-    let mut holes = Vec::with_capacity(seeds.len());
-    for s in seeds {
+    let base = p.layout.base_size(&p.shape);
+    let mut holes = Vec::with_capacity(seeds.seeds.len());
+    for s in &seeds.seeds {
         // Tri rapide sur le centre : en découpe au bord, on garde tout centre
         // assez proche pour que le trou entre dans la zone.
-        let reach = if clip { p.shape.size } else { 0.0 };
+        let reach = match s.shape {
+            // Cellule ou ruban : on décide sur sa forme, pas sur son centre.
+            Some(_) => f64::INFINITY,
+            None if clip => p.shape.size,
+            None => 0.0,
+        };
         if plate.sdf(s.pos) > reach - margin || zone.as_ref().is_some_and(|z| z.sdf(s.pos) > reach)
         {
             stats.removed_edge += 1;
             continue;
         }
-        let size = size_field.value(p.shape.size, s.pos);
-        if size < p.fabrication.min_size || size <= 0.0 {
+        let size = size_field.value(base, s.pos);
+        if s.shape.is_none() && (size < p.fabrication.min_size || size <= 0.0) {
             stats.removed_small += 1;
             continue;
         }
@@ -452,8 +512,45 @@ fn build_holes(p: &Project, seeds: &[Seed]) -> (Vec<Hole>, Stats) {
             stats.removed_cull += 1;
             continue;
         }
-        let angle = angle_field.value(p.shape.rotation, s.pos) + s.angle;
-        let geom = hole_geometry(&p.shape, size, angle, s.pos);
+        let (angle, geom) = match (s.shape, &p.layout) {
+            (Some(k), Layout::Voronoi(v)) => {
+                let cell = &seeds.shapes[k as usize];
+                match cell_geometry(cell, s.pos, size.max(0.0), v.fillet) {
+                    // Perforation plus petite que la taille mini (diamètre équivalent).
+                    Some(g)
+                        if 2.0 * (g.area / std::f64::consts::PI).sqrt()
+                            >= p.fabrication.min_size =>
+                    {
+                        (0.0, g)
+                    }
+                    _ => {
+                        stats.removed_small += 1;
+                        continue;
+                    }
+                }
+            }
+            (Some(k), Layout::Flow(f)) => {
+                let line = &seeds.shapes[k as usize];
+                let width = |q: Vec2| size_field.value(f.width, q).max(0.0);
+                match ribbon_geometry(line, s.pos, &width, f.ends) {
+                    Some(g) => (0.0, g),
+                    None => {
+                        stats.removed_small += 1;
+                        continue;
+                    }
+                }
+            }
+            _ => {
+                let angle = angle_field.value(p.shape.rotation, s.pos) + s.angle;
+                (angle, hole_geometry(&p.shape, size, angle, s.pos))
+            }
+        };
+        // Taille affichée d'une cellule ou d'un ruban : diamètre équivalent.
+        let size = if s.shape.is_some() {
+            2.0 * (geom.area / std::f64::consts::PI).sqrt()
+        } else {
+            size
+        };
         if clip {
             // Hors de la zone, ou entièrement dans une zone réservée : rien à découper.
             if plate.sdf(s.pos) > geom.bound - margin
@@ -839,6 +936,93 @@ mod tests {
             "chaque maille entoure un îlot de matière"
         );
         assert!(f.issues.iter().any(|i| i.code == "holes.islands"));
+    }
+
+    fn panel(layout: Layout) -> Project {
+        Project {
+            layout,
+            plate: Plate {
+                width: 120.0,
+                height: 80.0,
+                corner_radius: 0.0,
+                margin: 5.0,
+                ..Plate::default()
+            },
+            ..Project::default()
+        }
+    }
+
+    #[test]
+    fn voronoi_cells_keep_exact_ribs() {
+        let p = panel(Layout::Voronoi(crate::project::Voronoi::default()));
+        let mut pl = Pipeline::new();
+        let f = pl.compute(&p);
+        assert!(f.holes.len() > 40, "{}", f.holes.len());
+        assert_eq!(f.metrics.overlaps, 0);
+        // Nervure entre deux cellules voisines : exactement 1,5 mm.
+        let b = f.metrics.bridge_min.unwrap();
+        assert!((b - 1.5).abs() < 1e-6, "{b}");
+        assert!(f
+            .holes
+            .iter()
+            .all(|h| h.geom.round == 1.0 && h.geom.core.len() >= 3));
+        // Reproductible.
+        let n = f.holes.len();
+        let mut pl2 = Pipeline::new();
+        assert_eq!(pl2.compute(&p).holes.len(), n);
+    }
+
+    #[test]
+    fn voronoi_density_follows_the_spacing_channel() {
+        let mut p = panel(Layout::Voronoi(crate::project::Voronoi::default()));
+        p.controllers.push(Controller {
+            spacing: Some(Influence::new(40.0, 5.0)),
+            ..Controller::new(
+                1,
+                Geometry::Point {
+                    at: Vec2::new(20.0, 40.0),
+                },
+            )
+        });
+        let mut pl = Pipeline::new();
+        let f = pl.compute(&p);
+        let left = f.holes.iter().filter(|h| h.center.x < 40.0).count();
+        let right = f.holes.iter().filter(|h| h.center.x > 80.0).count();
+        // La relaxation lisse une partie de l'écart de densité.
+        assert!(2 * left > 3 * right, "{left} {right}");
+    }
+
+    #[test]
+    fn flow_lines_become_ribbons() {
+        let mut p = panel(Layout::Flow(crate::project::Flow::default()));
+        // Recherche des nervures jusqu'à 6 mm (3 × la nervure mini).
+        p.fabrication.min_bridge = 2.0;
+        let mut pl = Pipeline::new();
+        let f = pl.compute(&p);
+        // Axes entre y = 6,5 et 73,5, tous les 8 mm depuis y = 40.
+        assert_eq!(f.holes.len(), 9);
+        assert_eq!(f.metrics.overlaps, 0);
+        let b = f.metrics.bridge_min.unwrap();
+        assert!((b - 5.0).abs() < 1e-3, "{b}");
+        // Une ligne courbée par le canal Angle reste un ruban sans chevauchement.
+        p.controllers.push(Controller {
+            angle: Some(Influence::new(50.0, 30.0)),
+            ..Controller::new(
+                1,
+                Geometry::Point {
+                    at: Vec2::new(60.0, 40.0),
+                },
+            )
+        });
+        let f = pl.compute(&p);
+        assert!(f.holes.len() >= 6);
+        assert_eq!(f.metrics.overlaps, 0);
+        assert!(f.holes.iter().any(|h| {
+            let ys: Vec<f64> = h.geom.core.iter().map(|v| v.y).collect();
+            ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+                - ys.iter().cloned().fold(f64::INFINITY, f64::min)
+                > 6.0
+        }));
     }
 
     #[test]

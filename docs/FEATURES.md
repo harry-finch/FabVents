@@ -17,8 +17,8 @@ Périmètre fonctionnel de FabVents, établi à partir de l'inventaire des fonct
 | LAY-07 | Hachures croisées : treillis de fentes au milieu des arêtes, matière aux croisements | v0.2 | fait |
 | LAY-08 | Chemin : répétition le long d'un tracé | v0.2 | fait |
 | LAY-09 | Orientation selon le chemin (concentrique, spirale, chemin) | v0.2 | fait |
-| LAY-10 | Voronoï : Lloyd, nervures variables, congés aux sommets | v0.5 | prévu |
-| LAY-11 | Lignes fluides : rubans d'épaisseur et de courbure variables | v0.5 | prévu |
+| LAY-10 | Voronoï : Lloyd, nervures variables, congés aux sommets | v0.5 | fait |
+| LAY-11 | Lignes fluides : rubans d'épaisseur et de courbure variables | v0.5 | fait |
 | LAY-12 | Disposition scriptée (« IA sur mesure ») avec curseurs déclarés | v0.7 | prévu |
 
 ## Contrôleurs et canaux (FLD)

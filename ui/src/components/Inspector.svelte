@@ -13,7 +13,7 @@
   import { fmtArea, fmtLen, num, pct } from '../lib/format';
   import { issueText } from '../lib/issues';
   import { isClosed, isOpenPath } from '../lib/geometry';
-  import { baseSpacing, type Channel, type Controller, type CtrlGeometry, type CullMode, type Feature, type Influence, type Side } from '../lib/types';
+  import { baseAngle, baseSize, baseSizeField, baseSpacing, type Channel, type Controller, type CtrlGeometry, type CullMode, type Feature, type Influence, type Side } from '../lib/types';
 
   const key = $derived(store.selection);
   const geom = $derived(store.selectedGeometry);
@@ -75,12 +75,18 @@
   }
 
   const baseOf = (ch: Channel) =>
-    ch === 'size' ? store.p.shape.size : ch === 'angle' ? store.p.shape.rotation : (baseSpacing(store.p.layout) ?? 0);
+    ch === 'size' ? baseSize(store.p) : ch === 'angle' ? baseAngle(store.p) : (baseSpacing(store.p.layout) ?? 0);
   function setBase(ch: Channel, v: number) {
     store.edit((q) => {
-      if (ch === 'size') q.shape.size = v;
-      else if (ch === 'angle') q.shape.rotation = v;
-      else if (q.layout.mode !== 'grid' && q.layout.mode !== 'cross_hatch') q.layout.spacing = v;
+      const l = q.layout;
+      if (ch === 'size') {
+        if (l.mode === 'voronoi') l.rib = v;
+        else if (l.mode === 'flow') l.width = v;
+        else q.shape.size = v;
+      } else if (ch === 'angle') {
+        if (l.mode === 'flow') l.angle = v;
+        else q.shape.rotation = v;
+      } else if (l.mode !== 'grid' && l.mode !== 'cross_hatch') l.spacing = v;
     }, `base.${ch}`);
   }
 
@@ -451,7 +457,7 @@
         hint={t('channels.baseHint')}
         kind={ch === 'angle' ? 'angle' : 'length'}
         min={ch === 'angle' ? -Infinity : 0}
-        field={ch === 'size' ? 'shape.size' : ch === 'angle' ? 'shape.rotation' : 'layout.spacing'}
+        field={ch === 'size' ? baseSizeField(store.p.layout) : ch === 'angle' ? (store.p.layout.mode === 'flow' ? 'layout.angle' : 'shape.rotation') : 'layout.spacing'}
         value={baseOf(ch)}
         onchange={(v) => setBase(ch, v)}
       />
