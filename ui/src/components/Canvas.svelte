@@ -17,7 +17,7 @@
   import { featureGeometry, sameKey as same, store, type Item, type ItemKey } from '../lib/store.svelte';
   import { theme } from '../lib/theme.svelte';
   import { t } from '../lib/i18n.svelte';
-  import { fmtLen, numTrim } from '../lib/format';
+  import { fmtLen, numTrim, pct } from '../lib/format';
   import { add, angleOf, dist, distSeg, dragPart, handles, insideImage, outline, reachAnchor, round2, sub, distanceTo } from '../lib/geometry';
   import { rasterCanvas } from '../lib/image';
   import type { CtrlGeometry, Feature, FrameData, Tab, Vec2 } from '../lib/types';
@@ -442,7 +442,7 @@
       ctx.strokeRect(r.x - 4, r.y - 4, 8, 8);
     }
     const anchor = toScreen(handles(g)[0]?.pos ?? { x: 0, y: 0 });
-    const label = scene.tab === 'angle' ? `${numTrim(inf.target, 1)}°` : fmtLen(inf.target, scene.units, 2);
+    const label = scene.tab === 'angle' ? `${numTrim(inf.target, 1)}°` : scene.tab === 'morph' ? pct(inf.target * 100) : fmtLen(inf.target, scene.units, 2);
     tag(ctx, label, anchor.x + 10, anchor.y - 22);
   }
 

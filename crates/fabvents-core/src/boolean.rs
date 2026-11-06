@@ -84,6 +84,30 @@ pub fn cut(holes: &[Vec<Vec2>], zone: &[Vec<Vec2>], keepouts: &[Vec<Vec2>]) -> V
         .collect()
 }
 
+/// Formes (contour extérieur puis trous), comme les rend `i_overlay`.
+pub type Shapes = Vec<Vec<Vec<Vec2>>>;
+
+/// Ajoute (`add`) ou retire les contours `layer` (règle non nulle) des
+/// formes `acc`.
+pub fn combine(acc: &Shapes, layer: &[Vec<Vec2>], add: bool) -> Shapes {
+    let subj: Vec<Vec<Vec<P>>> = acc
+        .iter()
+        .map(|s| s.iter().map(|c| to_p(c)).collect())
+        .collect();
+    let clip: Vec<Vec<P>> = layer.iter().map(|c| to_p(c)).collect();
+    let rule = if add {
+        OverlayRule::Union
+    } else {
+        OverlayRule::Difference
+    };
+    FloatOverlay::with_subj_and_clip(&subj, &clip)
+        .overlay(rule, FillRule::NonZero)
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.into_iter().map(|c| from_p(&c)).collect())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,6 +160,17 @@ mod tests {
         );
         let total: f64 = r.iter().map(Cut::area).sum();
         assert!((total - 75.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn layers_add_and_subtract() {
+        let a = combine(&Vec::new(), &[square(0.0, 0.0, 4.0)], true);
+        let b = combine(&a, &[square(2.0, 0.0, 4.0)], true);
+        assert_eq!(b.len(), 1);
+        assert!((signed_area(&b[0][0]).abs() - 24.0).abs() < 1e-6);
+        let c = combine(&b, &[square(1.0, 1.0, 2.0)], false);
+        let area: f64 = c[0].iter().map(|r| signed_area(r)).sum::<f64>();
+        assert!((area.abs() - 20.0).abs() < 1e-6, "{area}");
     }
 
     #[test]

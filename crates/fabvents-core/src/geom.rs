@@ -226,18 +226,82 @@ pub fn core_distance(a: &[Vec2], b: &[Vec2]) -> f64 {
 }
 
 /// Distance entre deux âmes si elle est inférieure à `limit`, sinon
-/// `f64::INFINITY`. Les longues âmes (rubans) passent par une grille de
-/// segments au lieu de comparer toutes les paires.
+/// `f64::INFINITY`. Pour les âmes à nombreux sommets (formes dessinées,
+/// morphing, rubans) : borne supérieure par les sommets qui se font face,
+/// puis seuls les segments à moins de cette borne de la boîte de l'autre
+/// âme sont comparés. Résultat exact.
 pub fn core_distance_within(a: &[Vec2], b: &[Vec2], limit: f64) -> f64 {
-    if a.len() * b.len() <= 4096 {
+    if a.len() * b.len() <= 256 {
         let d = core_distance(a, b);
         return if d < limit { d } else { f64::INFINITY };
     }
     if (a.len() >= 3 && point_in_polygon(b[0], a)) || (b.len() >= 3 && point_in_polygon(a[0], b)) {
         return 0.0;
     }
-    let sa = core_segments(a);
-    let sb = core_segments(b);
+    let center = |v: &[Vec2]| v.iter().fold(Vec2::ZERO, |s, &p| s + p) * (1.0 / v.len() as f64);
+    let dir = (center(b) - center(a)).normalized();
+    // Borne supérieure : sommets les plus avancés l'un vers l'autre.
+    let front = |v: &[Vec2], sign: f64| {
+        let mut idx: Vec<usize> = (0..v.len()).collect();
+        idx.sort_by(|&i, &j| (sign * v[j].dot(dir)).total_cmp(&(sign * v[i].dot(dir))));
+        idx.truncate(8);
+        idx
+    };
+    let (fa, fb) = (front(a, 1.0), front(b, -1.0));
+    let mut ub = limit;
+    for &i in &fa {
+        for &j in &fb {
+            ub = ub.min(a[i].distance(b[j]));
+        }
+    }
+    let bbox = |v: &[Vec2]| {
+        let mut lo = Vec2::new(f64::INFINITY, f64::INFINITY);
+        let mut hi = Vec2::new(f64::NEG_INFINITY, f64::NEG_INFINITY);
+        for p in v {
+            lo = Vec2::new(lo.x.min(p.x), lo.y.min(p.y));
+            hi = Vec2::new(hi.x.max(p.x), hi.y.max(p.y));
+        }
+        (lo, hi)
+    };
+    let near = |(p, q): (Vec2, Vec2), (lo, hi): (Vec2, Vec2)| {
+        let dx = (lo.x - p.x.max(q.x)).max(p.x.min(q.x) - hi.x).max(0.0);
+        let dy = (lo.y - p.y.max(q.y)).max(p.y.min(q.y) - hi.y).max(0.0);
+        dx * dx + dy * dy <= ub * ub
+    };
+    let (ba, bb) = (bbox(a), bbox(b));
+    let sa: Vec<(Vec2, Vec2)> = core_segments(a)
+        .into_iter()
+        .filter(|&s| near(s, bb))
+        .collect();
+    let sb: Vec<(Vec2, Vec2)> = core_segments(b)
+        .into_iter()
+        .filter(|&s| near(s, ba))
+        .collect();
+    let mut best = segments_min_distance(&sa, &sb, ub);
+    best = best.min(ub);
+    if best < limit {
+        best
+    } else {
+        f64::INFINITY
+    }
+}
+
+/// Plus petite distance entre deux listes de segments, cherchée jusqu'à
+/// `limit` : comparaison directe, ou grille de segments si les paires sont
+/// nombreuses (longs rubans).
+fn segments_min_distance(sa: &[(Vec2, Vec2)], sb: &[(Vec2, Vec2)], limit: f64) -> f64 {
+    let mut best = f64::INFINITY;
+    if sa.len() * sb.len() <= 20_000 {
+        for &(p, q) in sa {
+            for &(r, t) in sb {
+                best = best.min(dist_segment_segment(p, q, r, t));
+                if best == 0.0 {
+                    return 0.0;
+                }
+            }
+        }
+        return best;
+    }
     let cell = limit.max(0.5);
     let key = |x: f64, y: f64| ((x / cell).floor() as i64, (y / cell).floor() as i64);
     let mut grid: std::collections::HashMap<(i64, i64), Vec<usize>> =
@@ -251,9 +315,8 @@ pub fn core_distance_within(a: &[Vec2], b: &[Vec2], limit: f64) -> f64 {
             }
         }
     }
-    let mut best = f64::INFINITY;
     let mut seen = Vec::new();
-    for &(p, q) in &sa {
+    for &(p, q) in sa {
         let (x0, y0) = key(p.x.min(q.x), p.y.min(q.y));
         let (x1, y1) = key(p.x.max(q.x), p.y.max(q.y));
         seen.clear();
@@ -267,18 +330,14 @@ pub fn core_distance_within(a: &[Vec2], b: &[Vec2], limit: f64) -> f64 {
         seen.sort_unstable();
         seen.dedup();
         for &k in &seen {
-            let (r, s) = sb[k];
-            best = best.min(dist_segment_segment(p, q, r, s));
+            let (r, t) = sb[k];
+            best = best.min(dist_segment_segment(p, q, r, t));
             if best == 0.0 {
                 return 0.0;
             }
         }
     }
-    if best < limit {
-        best
-    } else {
-        f64::INFINITY
-    }
+    best
 }
 
 /// Angle d'un arc de « bulge » DXF : `bulge = tan(angle / 4)`, positif dans le

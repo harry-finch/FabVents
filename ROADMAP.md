@@ -70,17 +70,19 @@ Acceptation : découpe, fusion et îlots testés sur des cas à aire connue ; co
 
 Acceptation : chaque cas de la fiche FreeCAD donne des solides valides, au volume calculé.
 
-## v0.5 — Voronoï et lignes fluides (jalon 5) · *à tester* (livrée le 06/11/2026)
+## v0.5 — Voronoï et lignes fluides (jalon 5) · *validée*
 
 - **Voronoï** : relaxation de Lloyd, nervures d'épaisseur variable (canal Taille), congés aux sommets, densité par le canal Espacement.
 - **Lignes fluides** : rubans d'épaisseur variable, canaux remappés (épaisseur, espacement, courbure, direction), extrémités plates ou rondes, nettoyage des auto-intersections.
 
 Acceptation : nervures de Voronoï exactes (mesurées au micron), densité suivant le canal Espacement, rubans sans chevauchement, STEP valides dans FreeCAD.
 
-## v0.6 — Atelier de formes et morphing (jalon 6)
+## v0.6 — Atelier de formes et morphing (jalon 6) · *à tester* (livrée le 06/11/2026)
 
 - Éditeur de formes : plume, Bézier, primitives cotées, sélection directe, congés non destructifs, import SVG / DXF, symétrie miroir et radiale (2 à 12), calques avec rôles booléens (union, soustraction), réponse au gradient par calque, point de pivot.
 - Canal **Forme** : morphing vers une primitive cible ; morphing personnalisé départ ↔ cible.
+
+Acceptation : aires exactes des calques combinés (union, soustraction, symétries, réponse, Bézier), morphing exact aux deux bouts, STEP valides dans FreeCAD, mesure des nervures sous 100 ms sur 1 400 formes dessinées.
 
 ## v0.7 — Bureau et automatisation (jalon 7)
 

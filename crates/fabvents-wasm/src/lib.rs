@@ -253,6 +253,51 @@ pub fn import_outline(text: &str) -> Result<String, JsError> {
     .to_string())
 }
 
+/// Forme dessinée depuis un SVG ou un DXF (JSON `CustomShape` : contour
+/// extérieur en union, contours intérieurs en soustraction, taille 1).
+#[wasm_bindgen]
+pub fn import_shape(text: &str) -> Result<String, JsError> {
+    let r = fabvents_core::import::import_outline(text).map_err(|e| JsError::new(e.code()))?;
+    serde_json::to_string(&fabvents_core::shape::shape_from_import(&r))
+        .map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Aperçu de l'atelier de formes, en unités de taille autour du pivot :
+/// `{ result: [[x, y]…], layers: [[[x, y]…]…], dropped }` — contour obtenu
+/// (calques combinés, symétries comprises) et contour de chaque calque.
+#[wasm_bindgen]
+pub fn shape_preview(shape_json: &str) -> Result<String, JsError> {
+    let shape: fabvents_core::project::Shape =
+        serde_json::from_str(shape_json).map_err(|e| JsError::new(&e.to_string()))?;
+    let prepared = fabvents_core::shape::PreparedShape::new(&shape);
+    let g = prepared.geometry(1.0, 0.0, 0.0, fabvents_core::Vec2::ZERO);
+    let result: Vec<[f64; 2]> = Contour::rounded(&g.core, g.round)
+        .tessellated(0.002)
+        .into_iter()
+        .map(|p| [p.x, p.y])
+        .collect();
+    let layers: Vec<Vec<[f64; 2]>> = match &shape.kind {
+        fabvents_core::project::ShapeKind::Custom(c) => c
+            .layers
+            .iter()
+            .map(|l| {
+                if l.nodes.len() < 3 {
+                    return Vec::new();
+                }
+                fabvents_core::shape::flatten_layer(l, 0.002)
+                    .into_iter()
+                    .map(|p| [p.x - c.pivot.x, p.y - c.pivot.y])
+                    .collect()
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+    Ok(
+        json!({ "result": result, "layers": layers, "dropped": prepared.dropped_parts() })
+            .to_string(),
+    )
+}
+
 /// Gabarit de grille de ventilateur (40, 60, 80, 92, 120 ou 140 mm).
 #[wasm_bindgen]
 pub fn fan_template(size: u32) -> Result<String, JsError> {

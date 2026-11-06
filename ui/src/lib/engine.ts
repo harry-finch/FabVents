@@ -87,6 +87,16 @@ export class EngineClient {
     return this.#call({ kind: 'import', text });
   }
 
+  /** Forme dessinée depuis un SVG ou un DXF (JSON `CustomShape`). */
+  importShape(text: string): Promise<string> {
+    return this.#call({ kind: 'import-shape', text });
+  }
+
+  /** Aperçu de l'atelier de formes (JSON `ShapePreview`). */
+  shapePreview(shape: string): Promise<string> {
+    return this.#call({ kind: 'preview', shape });
+  }
+
   /** Projet d'un gabarit de grille de ventilateur. */
   fanTemplate(size: number): Promise<string> {
     return this.#call({ kind: 'template', size });

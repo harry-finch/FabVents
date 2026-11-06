@@ -289,9 +289,10 @@
               <NumField
                 label={t(`ctrl.target.${ch}`)}
                 hint={t(`ctrl.targetHint.${ch}`)}
-                kind={ch === 'angle' ? 'angle' : 'length'}
+                kind={ch === 'angle' ? 'angle' : ch === 'morph' ? 'percent' : 'length'}
                 field={`controllers.${ctrl.id}.${ch}.target`}
                 min={ch === 'angle' ? -Infinity : 0}
+                max={ch === 'morph' ? 1 : Infinity}
                 value={inf.target}
                 onchange={(v) => editInf(ch, (i) => (i.target = v), 'target')}
               />
@@ -452,15 +453,19 @@
   {:else if store.channel}
     {@const ch = store.channel}
     <Section id={`channel.${ch}`} title={t(`channels.${ch}`)}>
+      {#if ch === 'morph'}
+        <p class="muted">{t('channels.morphBase')}</p>
+      {:else}
       <NumField
-        label={t(`channels.base.${ch}`)}
-        hint={t('channels.baseHint')}
-        kind={ch === 'angle' ? 'angle' : 'length'}
-        min={ch === 'angle' ? -Infinity : 0}
-        field={ch === 'size' ? baseSizeField(store.p.layout) : ch === 'angle' ? (store.p.layout.mode === 'flow' ? 'layout.angle' : 'shape.rotation') : 'layout.spacing'}
-        value={baseOf(ch)}
-        onchange={(v) => setBase(ch, v)}
-      />
+          label={t(`channels.base.${ch}`)}
+          hint={t('channels.baseHint')}
+          kind={ch === 'angle' ? 'angle' : 'length'}
+          min={ch === 'angle' ? -Infinity : 0}
+          field={ch === 'size' ? baseSizeField(store.p.layout) : ch === 'angle' ? (store.p.layout.mode === 'flow' ? 'layout.angle' : 'shape.rotation') : 'layout.spacing'}
+          value={baseOf(ch)}
+          onchange={(v) => setBase(ch, v)}
+        />
+      {/if}
       {#if store.items.length}
         <ul class="list">
           {#each store.items as it, n (n)}
@@ -469,7 +474,7 @@
               <button type="button" class="row" onclick={() => store.select(it.key)}>
                 <GeometryIcon type={it.geometry.type} size={13} />
                 <span class="rname">{t(`ctrl.types.${it.geometry.type}`)} {it.key.kind === 'ctrl' ? it.key.id : ''}</span>
-                <span class="rval tabular">{ch === 'angle' ? `${num(inf.target, 0)}°` : fmtLen(inf.target, store.units)}</span>
+                <span class="rval tabular">{ch === 'angle' ? `${num(inf.target, 0)}°` : ch === 'morph' ? pct(inf.target * 100) : fmtLen(inf.target, store.units)}</span>
               </button>
             </li>
           {/each}

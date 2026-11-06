@@ -26,10 +26,10 @@ use crate::layout::{layout_seeds, Seeds};
 use crate::metrics::{measure_with_overlaps, Metrics};
 use crate::project::{
     Channel, Controller, EdgeMode, Fabrication, Feature, FeatureShape, FlowEnds, Layout, Plate,
-    Project, Shape,
+    Project, Shape, ShapeKind,
 };
 use crate::region::Region;
-use crate::shape::{hole_geometry, HoleGeometry};
+use crate::shape::{HoleGeometry, PreparedShape};
 use crate::solid::{self, SolidPlan};
 use crate::validate::validate;
 use serde::Serialize;
@@ -67,6 +67,8 @@ pub struct Stats {
     pub removed_small: usize,
     /// Trous retirés par une disparition aléatoire.
     pub removed_cull: usize,
+    /// Morceaux écartés de la forme dessinée (pièces détachées, îlots).
+    pub shape_dropped: usize,
     /// Trous retirés car trop près d'un trou de fixation ou d'une zone réservée.
     pub removed_feature: usize,
     /// Trous fusionnés ou coupés au bord (devenus des polygones).
@@ -342,6 +344,13 @@ impl Pipeline {
                     .field("fabrication.min_size"),
             );
         }
+        if self.stats.shape_dropped > 0 {
+            issues.push(
+                Issue::warning("shape.parts_dropped")
+                    .count(self.stats.shape_dropped)
+                    .field("shape.layers"),
+            );
+        }
         if self.stats.removed_feature > 0 {
             issues.push(Issue::info("holes.removed_feature").count(self.stats.removed_feature));
         }
@@ -433,6 +442,15 @@ pub fn feature_region(f: &Feature) -> Region {
     }
 }
 
+/// Morceaux d'une forme dessinée écartés à la taille de base (pièces
+/// détachées, îlots de matière).
+fn prepared_dropped(shape: &Shape) -> usize {
+    match &shape.kind {
+        ShapeKind::Custom(_) => PreparedShape::new(shape).dropped_parts(),
+        _ => 0,
+    }
+}
+
 /// Perforation d'une cellule de Voronoï : cellule réduite de la
 /// demi-nervure et du congé, arrondie du congé. `None` si elle disparaît.
 fn cell_geometry(cell: &[Vec2], center: Vec2, rib: f64, fillet: f64) -> Option<HoleGeometry> {
@@ -474,6 +492,8 @@ fn build_holes(p: &Project, seeds: &Seeds) -> (Vec<Hole>, Stats) {
     let field = Field::new(&p.controllers);
     let size_field = field.channel(Channel::Size);
     let angle_field = field.channel(Channel::Angle);
+    let morph_field = field.channel(Channel::Morph);
+    let prepared = PreparedShape::new(&p.shape);
     let margin = p.plate.margin;
     let plate = p.plate.region();
     let zone = p.plate.zone_region();
@@ -485,6 +505,11 @@ fn build_holes(p: &Project, seeds: &Seeds) -> (Vec<Hole>, Stats) {
     let clip = p.edge == EdgeMode::Clip;
     let mut stats = Stats {
         seeds: seeds.seeds.len(),
+        shape_dropped: if p.layout.shapes_holes() {
+            0
+        } else {
+            prepared_dropped(&p.shape)
+        },
         ..Stats::default()
     };
     let base = p.layout.base_size(&p.shape);
@@ -542,7 +567,8 @@ fn build_holes(p: &Project, seeds: &Seeds) -> (Vec<Hole>, Stats) {
             }
             _ => {
                 let angle = angle_field.value(p.shape.rotation, s.pos) + s.angle;
-                (angle, hole_geometry(&p.shape, size, angle, s.pos))
+                let morph = morph_field.value(0.0, s.pos).clamp(0.0, 1.0);
+                (angle, prepared.geometry(size, angle, morph, s.pos))
             }
         };
         // Taille affichée d'une cellule ou d'un ruban : diamètre équivalent.
@@ -950,6 +976,74 @@ mod tests {
             },
             ..Project::default()
         }
+    }
+
+    #[test]
+    fn custom_shapes_and_morphing() {
+        use crate::project::{CustomShape, ShapeLayer, Symmetry};
+        let mut p = square(10.0);
+        // Croix : barre en symétrie radiale d'ordre 4 (copies à 90°).
+        let bar = ShapeLayer {
+            symmetry: Symmetry::Radial { count: 4 },
+            nodes: [(-0.5, -0.12), (0.5, -0.12), (0.5, 0.12), (-0.5, 0.12)]
+                .into_iter()
+                .map(|(x, y)| crate::project::ShapeNode::at(Vec2::new(x, y)))
+                .collect(),
+            ..ShapeLayer::default()
+        };
+        p.shape.kind = ShapeKind::Custom(CustomShape {
+            layers: vec![bar],
+            pivot: Vec2::ZERO,
+        });
+        p.shape.size = 8.0;
+        let mut pl = Pipeline::new();
+        let f = pl.compute(&p);
+        // Grille 9 × 9 (les centres du bord ne laissent pas la croix entière).
+        assert_eq!(f.holes.len(), 81);
+        assert!(
+            f.issues.iter().all(|i| i.severity != Severity::Error),
+            "{:?}",
+            f.issues
+        );
+        let cross = f.holes[0].geom.area;
+        // 2 × (8 × 1,92) − 1,92² = 27,0336.
+        assert!((cross - 27.0336).abs() < 1e-6, "{cross}");
+        // Morphing vers un disque près d'un contrôleur du canal Forme.
+        p.shape.morph = Some(Box::new(ShapeKind::Circle));
+        p.controllers.push(Controller {
+            morph: Some(Influence::new(40.0, 1.0)),
+            ..Controller::new(
+                1,
+                Geometry::Point {
+                    at: Vec2::new(10.0, 10.0),
+                },
+            )
+        });
+        let f = pl.compute(&p);
+        let near = f
+            .holes
+            .iter()
+            .min_by(|a, b| {
+                a.center
+                    .distance(Vec2::new(10.0, 10.0))
+                    .total_cmp(&b.center.distance(Vec2::new(10.0, 10.0)))
+            })
+            .unwrap();
+        assert_eq!(near.geom.core.len(), 1, "disque exact sous le contrôleur");
+        let far = f
+            .holes
+            .iter()
+            .min_by(|a, b| {
+                a.center
+                    .distance(Vec2::new(90.0, 90.0))
+                    .total_cmp(&b.center.distance(Vec2::new(90.0, 90.0)))
+            })
+            .unwrap();
+        assert!((far.geom.area - cross).abs() < 1e-6);
+        assert!(
+            f.holes.iter().any(|h| h.geom.core.len() == 128),
+            "formes intermédiaires"
+        );
     }
 
     #[test]

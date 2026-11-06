@@ -27,7 +27,7 @@
   };
   // Zoom : 100 % = taille réelle à l'écran (96 px par pouce CSS).
   const zoomPct = $derived((store.view.scale / (96 / 25.4)) * 100);
-  const KEYS: Record<Tab, string> = { size: '1', spacing: '2', angle: '3', path: '4', plate: '5' };
+  const KEYS: Record<Tab, string> = { size: '1', spacing: '2', angle: '3', path: '4', plate: '5', morph: '6' };
 
 </script>
 

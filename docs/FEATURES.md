@@ -42,7 +42,7 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | FLD-13 | Côté unique, extension infinie des extrémités | v0.2 | fait |
 | FLD-14 | Disparition aléatoire (*cull*) : centre, bord ou uniforme, graine | v0.2 | fait |
 | FLD-15 | Angle symétrique, angle par paliers | v0.2 | fait |
-| FLD-16 | Canal Forme (morphing) | v0.6 | prévu |
+| FLD-16 | Canal Forme (morphing) | v0.6 | fait |
 
 ## Formes (SHP)
 
@@ -50,11 +50,11 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | --- | --- | --- | --- |
 | SHP-01 | Cercle, rectangle à coins arrondis, polygone régulier, étoile, fente | v0.1 | fait |
 | SHP-02 | Taille de référence (diamètre, largeur, hauteur) suivie par le canal Taille | v0.1 | fait |
-| SHP-03 | Éditeur de formes : plume, Bézier, primitives cotées, congés non destructifs | v0.6 | prévu |
-| SHP-04 | Import SVG / DXF d'une forme | v0.6 | prévu |
-| SHP-05 | Symétrie miroir et radiale (2 à 12 axes), soudure sur l'axe | v0.6 | prévu |
-| SHP-06 | Calques et rôles booléens (union, soustraction) ; réponse au gradient par calque, pivot | v0.6 | prévu |
-| SHP-07 | Morphing vers une primitive, morphing personnalisé départ ↔ cible | v0.6 | prévu |
+| SHP-03 | Éditeur de formes (atelier) : nœuds, Bézier, primitives cotées, congés non destructifs | v0.6 | fait |
+| SHP-04 | Import SVG / DXF d'une forme | v0.6 | fait |
+| SHP-05 | Symétrie miroir et radiale (2 à 12 axes), soudure sur l'axe | v0.6 | fait |
+| SHP-06 | Calques et rôles booléens (union, soustraction) ; réponse au gradient par calque, pivot | v0.6 | fait |
+| SHP-07 | Morphing vers une primitive, morphing personnalisé départ ↔ cible | v0.6 | fait |
 
 ## Contour et bords (BND)
 

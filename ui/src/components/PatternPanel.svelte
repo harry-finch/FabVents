@@ -8,8 +8,9 @@
   import Disclosure from './Disclosure.svelte';
   import ShapeGlyph from './ShapeGlyph.svelte';
   import LayoutPicker from './LayoutPicker.svelte';
-  import { Dices, Spline, Upload } from '@lucide/svelte';
+  import { Dices, PenTool, Spline, Upload, Ban } from '@lucide/svelte';
   import { pickOutline } from '../lib/files';
+  import { toCustom } from '../lib/shapes';
   import { store } from '../lib/store.svelte';
   import { t } from '../lib/i18n.svelte';
   import { tip } from '../lib/tip';
@@ -61,24 +62,43 @@
     store.tool = 'curve';
   }
 
-  const SHAPES: ShapeType[] = ['circle', 'rectangle', 'polygon', 'star', 'slot'];
+  const SHAPES: ShapeType[] = ['circle', 'rectangle', 'polygon', 'star', 'slot', 'custom'];
   const DEFAULT_KIND: Record<ShapeType, ShapeKind> = {
     circle: { type: 'circle' },
     rectangle: { type: 'rectangle', aspect: 0.6, corner: 0.5 },
     polygon: { type: 'polygon', sides: 6 },
     star: { type: 'star', points: 5, inner: 0.5 },
     slot: { type: 'slot', aspect: 0.35 },
+    custom: { type: 'custom', layers: [], pivot: { x: 0, y: 0 } },
   };
 
+  /** Forme choisie ; « dessinée » part de la forme actuelle et ouvre l'atelier. */
   function setShape(type: ShapeType) {
-    if (type === kind.type) return;
+    if (type === kind.type) {
+      if (type === 'custom') store.workshop = 'kind';
+      return;
+    }
     store.edit((q) => {
-      q.shape.kind = structuredClone(DEFAULT_KIND[type]);
+      q.shape.kind = type === 'custom' ? { type: 'custom', ...toCustom(q.shape.kind, q.shape.size) } : structuredClone(DEFAULT_KIND[type]);
     });
+    if (type === 'custom') store.workshop = 'kind';
+  }
+
+  const morphType = $derived(p.shape.morph?.type ?? 'none');
+  function setMorph(type: ShapeType | 'none') {
+    store.edit((q) => {
+      if (type === 'none') {
+        q.shape.morph = null;
+        for (const c of q.controllers) delete c.morph;
+      } else if (type !== q.shape.morph?.type) {
+        q.shape.morph = type === 'custom' ? { type: 'custom', ...toCustom(q.shape.kind, q.shape.size) } : structuredClone(DEFAULT_KIND[type]);
+      }
+    });
+    if (type === 'custom') store.workshop = 'morph';
   }
 
   const sizeLabel = $derived(
-    kind.type === 'rectangle' ? t('shape.width') : kind.type === 'slot' ? t('shape.length') : t('shape.diameter'),
+    kind.type === 'rectangle' || kind.type === 'custom' ? t('shape.width') : kind.type === 'slot' ? t('shape.length') : t('shape.diameter'),
   );
 </script>
 
@@ -261,6 +281,9 @@
       {/each}
     </div>
     <NumField label={sizeLabel} hint={t('shape.sizeHint')} field="shape.size" min={0} value={p.shape.size} onchange={(v) => store.edit((q) => (q.shape.size = v), 'shape.size')} />
+    {#if kind.type === 'custom'}
+      <button class="btn import" type="button" use:tip={t('workshop.openHint')} onclick={() => (store.workshop = 'kind')}><PenTool size={14} /> {t('workshop.open')}</button>
+    {/if}
     {#if kind.type === 'rectangle'}
       {@const k = kind}
       <NumField
@@ -290,6 +313,24 @@
     {/if}
     {#if kind.type !== 'circle'}
       <NumField label={t('shape.rotation')} kind="angle" field="shape.rotation" value={p.shape.rotation} onchange={(v) => store.edit((q) => (q.shape.rotation = v), 'shape.rotation')} />
+    {/if}
+    <p class="sub" use:tip={t('shape.targetHint')}>{t('shape.target')}</p>
+    <div class="shapes" role="radiogroup" aria-label={t('shape.target')}>
+      <button type="button" role="radio" aria-checked={morphType === 'none'} aria-label={t('shape.noTarget')} class:on={morphType === 'none'} use:tip={t('shape.noTarget')} onclick={() => setMorph('none')}><Ban size={16} /></button>
+      {#each SHAPES as s (s)}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={morphType === s}
+          aria-label={t(`shape.types.${s}`)}
+          class:on={morphType === s}
+          use:tip={t(`shape.types.${s}`)}
+          onclick={() => setMorph(s)}><ShapeGlyph type={s} /></button
+        >
+      {/each}
+    </div>
+    {#if morphType === 'custom'}
+      <button class="btn import" type="button" onclick={() => (store.workshop = 'morph')}><PenTool size={14} /> {t('shape.editTarget')}</button>
     {/if}
     {/if}
   </Section>
@@ -380,7 +421,8 @@
 
   .shapes {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     gap: 2px;
     height: 32px;
     padding: 2px;

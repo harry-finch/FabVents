@@ -5,13 +5,15 @@
 use crate::geom::Vec2;
 use crate::issue::Issue;
 use crate::project::{
-    Curve, FeatureShape, Geometry, GridPattern, Influence, Layout, Outline, Project, ShapeKind,
-    Zone,
+    Curve, CustomShape, FeatureShape, Geometry, GridPattern, Influence, LayerRole, Layout, Outline,
+    Project, ShapeKind, Symmetry, Zone,
 };
 use crate::raster::Luma;
 
 pub const MAX_POLYGON_SIDES: u32 = 64;
 pub const MAX_PATH_ROWS: u32 = 50;
+/// Copies au plus d'une symétrie radiale.
+pub const MAX_RADIAL: u32 = 12;
 /// Itérations de Lloyd au plus.
 pub const MAX_RELAX: u32 = 20;
 /// Dépouille maximale (degrés).
@@ -171,42 +173,9 @@ pub fn validate(p: &Project) -> Vec<Issue> {
     let s = &p.shape;
     positive(s.size, "shape.size", &mut out);
     finite(s.rotation, "shape.rotation", &mut out);
-    match s.kind {
-        ShapeKind::Circle => {}
-        ShapeKind::Rectangle { aspect, corner } => {
-            positive(aspect, "shape.aspect", &mut out);
-            non_negative(corner, "shape.corner", &mut out);
-            let max = s.size.min(s.size * aspect) / 2.0;
-            if corner > max && max > 0.0 {
-                out.push(
-                    Issue::warning("shape.corner_limited")
-                        .field("shape.corner")
-                        .value(max),
-                );
-            }
-        }
-        ShapeKind::Polygon { sides } => {
-            if !(3..=MAX_POLYGON_SIDES).contains(&sides) {
-                out.push(
-                    Issue::error("shape.sides_out_of_range", "shape.sides").value(sides as f64),
-                );
-            }
-        }
-        ShapeKind::Star { points, inner } => {
-            if !(3..=MAX_POLYGON_SIDES).contains(&points) {
-                out.push(
-                    Issue::error("shape.sides_out_of_range", "shape.points").value(points as f64),
-                );
-            }
-            if !(inner.is_finite() && inner > 0.0 && inner < 1.0) {
-                out.push(Issue::error("shape.ratio_out_of_range", "shape.inner").value(inner));
-            }
-        }
-        ShapeKind::Slot { aspect } => {
-            if !(aspect.is_finite() && aspect > 0.0 && aspect <= 1.0) {
-                out.push(Issue::error("shape.ratio_out_of_range", "shape.aspect").value(aspect));
-            }
-        }
+    shape_kind(&s.kind, s.size, "shape", &mut out);
+    if let Some(m) = &s.morph {
+        shape_kind(m, s.size, "shape.morph", &mut out);
     }
 
     // Fabrication.
@@ -304,6 +273,18 @@ pub fn validate(p: &Project) -> Vec<Issue> {
             finite(i.target, &format!("{base}.angle.target"), &mut out);
             non_negative(i.step, &format!("{base}.angle.step"), &mut out);
         }
+        if let Some(i) = &c.morph {
+            influence(i, &format!("{base}.morph"), image, &mut out);
+            if !(i.target.is_finite() && (0.0..=1.0).contains(&i.target)) {
+                out.push(
+                    Issue::error("value.out_of_range", format!("{base}.morph.target"))
+                        .value(i.target),
+                );
+            }
+            if p.shape.morph.is_none() {
+                out.push(Issue::warning("shape.morph_without_target").field("shape.morph"));
+            }
+        }
     }
 
     out
@@ -339,6 +320,93 @@ fn curve(c: &Curve, field: &str, out: &mut Vec<Issue>) {
             "value.must_be_non_negative",
             format!("{field}.fillets"),
         ));
+    }
+}
+
+/// Paramètres d'une forme (la forme, ou la cible du morphing).
+fn shape_kind(kind: &ShapeKind, size: f64, prefix: &str, out: &mut Vec<Issue>) {
+    match *kind {
+        ShapeKind::Circle => {}
+        ShapeKind::Rectangle { aspect, corner } => {
+            positive(aspect, &format!("{prefix}.aspect"), out);
+            non_negative(corner, &format!("{prefix}.corner"), out);
+            let max = size.min(size * aspect) / 2.0;
+            if corner > max && max > 0.0 {
+                out.push(
+                    Issue::warning("shape.corner_limited")
+                        .field(format!("{prefix}.corner"))
+                        .value(max),
+                );
+            }
+        }
+        ShapeKind::Polygon { sides } => {
+            if !(3..=MAX_POLYGON_SIDES).contains(&sides) {
+                out.push(
+                    Issue::error("shape.sides_out_of_range", format!("{prefix}.sides"))
+                        .value(sides as f64),
+                );
+            }
+        }
+        ShapeKind::Star { points, inner } => {
+            if !(3..=MAX_POLYGON_SIDES).contains(&points) {
+                out.push(
+                    Issue::error("shape.sides_out_of_range", format!("{prefix}.points"))
+                        .value(points as f64),
+                );
+            }
+            if !(inner.is_finite() && inner > 0.0 && inner < 1.0) {
+                out.push(
+                    Issue::error("shape.ratio_out_of_range", format!("{prefix}.inner"))
+                        .value(inner),
+                );
+            }
+        }
+        ShapeKind::Custom(ref c) => custom_shape(c, prefix, out),
+        ShapeKind::Slot { aspect } => {
+            if !(aspect.is_finite() && aspect > 0.0 && aspect <= 1.0) {
+                out.push(
+                    Issue::error("shape.ratio_out_of_range", format!("{prefix}.aspect"))
+                        .value(aspect),
+                );
+            }
+        }
+    }
+}
+
+/// Forme dessinée : au moins un calque en union, calques d'au moins trois
+/// nœuds, valeurs finies, symétrie radiale de 2 à 12.
+fn custom_shape(c: &CustomShape, prefix: &str, out: &mut Vec<Issue>) {
+    if !c
+        .layers
+        .iter()
+        .any(|l| l.role == LayerRole::Union && l.nodes.len() >= 3)
+    {
+        out.push(Issue::error(
+            "shape.custom_empty",
+            format!("{prefix}.layers"),
+        ));
+    }
+    point(c.pivot, &format!("{prefix}.pivot"), out);
+    for (i, l) in c.layers.iter().enumerate() {
+        let f = format!("{prefix}.layers.{i}");
+        if l.nodes.len() < 3 {
+            out.push(Issue::error("shape.layer_too_short", f.clone()).count(l.nodes.len()));
+        }
+        finite(l.response, &format!("{f}.response"), out);
+        if let Symmetry::Radial { count } = l.symmetry {
+            if !(2..=MAX_RADIAL).contains(&count) {
+                out.push(
+                    Issue::error("value.out_of_range", format!("{f}.symmetry")).value(count as f64),
+                );
+            }
+        }
+        for (j, n) in l.nodes.iter().enumerate() {
+            point(n.at, &format!("{f}.nodes.{j}"), out);
+            non_negative(n.fillet, &format!("{f}.nodes.{j}.fillet"), out);
+            for h in [n.handle_in, n.handle_out].into_iter().flatten() {
+                point(h, &format!("{f}.nodes.{j}"), out);
+            }
+        }
     }
 }
 
@@ -446,6 +514,7 @@ mod tests {
             },
             size: 10.0,
             rotation: 0.0,
+            morph: None,
         };
         let issues = validate(&p);
         assert_eq!(issues[0].code, "shape.corner_limited");

@@ -35,6 +35,7 @@ import {
   type Vec2,
   baseAngle,
   baseSize,
+  shapesHoles,
 } from './types';
 import type { UnitSystem } from './format';
 
@@ -153,6 +154,8 @@ class Store {
   viewTouched = false;
   cursor = $state<Vec2 | null>(null);
   help = $state(false);
+  /** Atelier de formes ouvert : sur la forme (`kind`) ou sur la cible du morphing. */
+  workshop = $state<'kind' | 'morph' | null>(null);
   toasts = $state<{ id: number; text: string }[]>([]);
   #toastSeq = 0;
 
@@ -317,7 +320,10 @@ class Store {
   get tabs(): Tab[] {
     if (!this.project) return ['size', 'angle'];
     const l = this.p.layout;
-    const out: Tab[] = CHANNELS.filter((c) => c !== 'spacing' || baseSpacing(l) != null);
+    // Canal Forme : seulement avec une forme cible (et une forme posée par la disposition non).
+    const out: Tab[] = CHANNELS.filter(
+      (c) => (c !== 'spacing' || baseSpacing(l) != null) && (c !== 'morph' || (!!this.p.shape.morph && !shapesHoles(l))),
+    );
     if (l.mode === 'path') out.push('path');
     out.push('plate');
     return out;
@@ -518,6 +524,7 @@ class Store {
     const ext = this.plateExtent();
     const reach = Math.max(5, Math.round(0.3 * Math.min(ext.x, ext.y)));
     if (ch === 'size') return { reach, target: Math.round(baseSize(p) * 16) / 10, hard_edge: false };
+    if (ch === 'morph') return { reach, target: 1, hard_edge: false };
     if (ch === 'spacing') return { reach, target: Math.round((baseSpacing(p.layout) ?? 8) * 5) / 10, hard_edge: false };
     return { reach, target: baseAngle(p) + 45, hard_edge: false };
   }

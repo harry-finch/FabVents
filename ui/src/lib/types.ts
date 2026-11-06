@@ -183,7 +183,45 @@ export type ShapeKind =
   | { type: 'rectangle'; aspect: number; corner: number }
   | { type: 'polygon'; sides: number }
   | { type: 'star'; points: number; inner: number }
-  | { type: 'slot'; aspect: number };
+  | { type: 'slot'; aspect: number }
+  | ({ type: 'custom' } & CustomShape);
+
+/** Nœud d'un calque : poignées de Bézier relatives au nœud. */
+export interface ShapeNode {
+  at: Vec2;
+  fillet?: number;
+  handle_in?: Vec2 | null;
+  handle_out?: Vec2 | null;
+}
+
+export type LayerRole = 'union' | 'subtract';
+
+export type Symmetry =
+  | { type: 'none' }
+  | { type: 'mirror'; vertical: boolean; horizontal: boolean }
+  | { type: 'radial'; count: number };
+
+export interface ShapeLayer {
+  nodes: ShapeNode[];
+  role: LayerRole;
+  symmetry?: Symmetry;
+  /** Réponse au canal Taille : 1 suit la taille, 0 garde la taille de base. */
+  response: number;
+}
+
+/** Aperçu de l'atelier : contour obtenu et contour de chaque calque, en
+ *  unités de taille autour du pivot ; morceaux écartés. */
+export interface ShapePreview {
+  result: [number, number][];
+  layers: [number, number][][];
+  dropped: number;
+}
+
+/** Forme dessinée : 1 = la taille de la forme, autour du pivot. */
+export interface CustomShape {
+  layers: ShapeLayer[];
+  pivot: Vec2;
+}
 
 export type ShapeType = ShapeKind['type'];
 
@@ -191,6 +229,8 @@ export interface Shape {
   kind: ShapeKind;
   size: number;
   rotation: number;
+  /** Cible du canal Forme (morphing). */
+  morph?: ShapeKind | null;
 }
 
 export type EdgeMode = 'center' | 'whole' | 'clip';
@@ -248,8 +288,8 @@ export type CtrlGeometry =
 
 export type GeometryType = CtrlGeometry['type'];
 
-export type Channel = 'size' | 'spacing' | 'angle';
-export const CHANNELS: Channel[] = ['size', 'spacing', 'angle'];
+export type Channel = 'size' | 'spacing' | 'angle' | 'morph';
+export const CHANNELS: Channel[] = ['size', 'spacing', 'angle', 'morph'];
 
 /** Onglet du canevas : un canal, ou les tracés de la disposition Chemin. */
 export type Tab = Channel | 'path' | 'plate';
@@ -265,6 +305,7 @@ export interface Controller {
   size?: Influence;
   spacing?: Influence;
   angle?: Influence;
+  morph?: Influence;
 }
 
 export interface Project {
@@ -311,13 +352,14 @@ export interface Stats {
   removed_cull: number;
   removed_feature: number;
   merged: number;
+  shape_dropped: number;
 }
 
 export interface Report {
   metrics: Metrics;
   stats: Stats;
   issues: Issue[];
-  stages: [boolean, boolean, boolean, boolean];
+  stages: boolean[];
 }
 
 /** Géométrie calculée par le moteur, prête à dessiner. */

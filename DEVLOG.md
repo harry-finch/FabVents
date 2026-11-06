@@ -106,3 +106,21 @@ v0.4 validée par l'utilisateur.
 - Cellules manquantes le long d'un bord : la boîte des cellules, élargie de la demi-nervure, plaçait la perforation exactement sur la marge (test « trou entier » au millionième) ; boîte ramenée à la zone perforable.
 - Mesure des nervures entre rubans en 1,1 s (toutes les paires de segments) : grille de segments limitée au rayon de recherche, 50 ms.
 - Rubans qui se chevauchaient quand la largeur augmente : écart minimal entre lignes porté à 1,25 largeur.
+
+## 2026-11-06 — v0.5 validée ; v0.6 : atelier de formes et morphing
+
+v0.5 validée par l'utilisateur.
+
+**Choix** (ADR-0010).
+- Forme dessinée par calques (union, soustraction, symétries, réponse au canal Taille, pivot), combinée par `i_overlay` ; préparée une fois par calcul (`PreparedShape`), puis seulement placée par trou.
+- Canal Forme : contours rééchantillonnés à 128 points et appariés, exacts aux deux bouts.
+- Atelier de formes en fenêtre modale, aperçu calculé par le moteur ; chaque geste est une étape d'annulation.
+- Format de projet v5, additif.
+
+**Vérification.** 136 tests ; trois panneaux STEP valides dans FreeCAD ; parcours dans le navigateur ; mesures natives.
+
+**Défauts corrigés pendant la vérification.**
+- Mesure des nervures en 260 ms (croix) et 820 ms (morphing) : borne par les sommets en vis-à-vis et filtrage des segments, 24 ms et 51 ms ; grille de segments gardée pour les rubans.
+- Disque obtenu par congés 0,24 % trop petit : flèche des calques ramenée de 0,01 à 0,004 mm.
+- Rangées de formes qui passaient à la ligne dans le panneau (six et sept boutons) ; étiquette du canevas du canal Forme en mm au lieu de %.
+- Contrôle FreeCAD complet trop lent sur 150 000 faces planes : validation sur un panneau de 60 mm.

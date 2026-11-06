@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "fabvents-core"
-version = "0.5.0-dev"
+version = "0.6.0-dev"
 dependencies = [
  "i_overlay",
  "roxmltree",
@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "fabvents-wasm"
-version = "0.5.0-dev"
+version = "0.6.0-dev"
 dependencies = [
  "fabvents-core",
  "serde_json",

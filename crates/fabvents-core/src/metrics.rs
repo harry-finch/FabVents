@@ -192,6 +192,7 @@ mod tests {
             kind: ShapeKind::Slot { aspect: 0.25 },
             size: 8.0,
             rotation: 0.0,
+            morph: None,
         };
         let mk = |y: f64| Hole {
             center: Vec2::new(0.0, y),

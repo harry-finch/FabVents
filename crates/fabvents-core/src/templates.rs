@@ -62,6 +62,7 @@ pub fn fan_grill(size: u32) -> Option<Project> {
             kind: ShapeKind::Circle,
             size: if small { 2.6 } else { 3.2 },
             rotation: 0.0,
+            morph: None,
         },
         edge: EdgeMode::Whole,
         features,

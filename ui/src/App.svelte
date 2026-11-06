@@ -9,6 +9,7 @@
   import Inspector from './components/Inspector.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import HelpDialog from './components/HelpDialog.svelte';
+  import ShapeWorkshop from './components/ShapeWorkshop.svelte';
   import { store } from './lib/store.svelte';
   import { t } from './lib/i18n.svelte';
   import { exportAs, isImageFile, openFile, pickFile, pickImage } from './lib/files';
@@ -38,7 +39,7 @@
   });
 
   const TOOL_KEYS: Record<string, Tool> = { v: 'select', h: 'hand', p: 'point', l: 'line', c: 'curve', r: 'ruler' };
-  const TAB_KEYS: Record<string, Tab> = { '1': 'size', '2': 'spacing', '3': 'angle', '4': 'path', '5': 'plate' };
+  const TAB_KEYS: Record<string, Tab> = { '1': 'size', '2': 'spacing', '3': 'angle', '4': 'path', '5': 'plate', '6': 'morph' };
 
   function typing(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null;
@@ -53,7 +54,7 @@
   }
 
   function keydown(e: KeyboardEvent) {
-    if (!store.project || store.help) return;
+    if (!store.project || store.help || store.workshop) return;
     const mod = e.metaKey || e.ctrlKey;
     const k = e.key.toLowerCase();
     if (mod && !typing(e)) {
@@ -156,6 +157,7 @@
 {/if}
 
 {#if store.help}<HelpDialog />{/if}
+{#if store.workshop}<ShapeWorkshop />{/if}
 
 <div class="toasts" aria-live="polite">
   {#each store.toasts as tt (tt.id)}

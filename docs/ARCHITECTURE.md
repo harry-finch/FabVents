@@ -25,13 +25,13 @@ Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`, `i_ov
 
 | Module | Rôle |
 | --- | --- |
-| `project` | `Project` sérialisable (format `fabvents.project`, version 4) : plaque (contour, zone perforée), disposition, forme, bords, fabrication (dont dépouille et dalles de l'export STEP), contrôleurs, éléments de plaque (trous de fixation, zones réservées). Lecture avec contrôle du format et de la version. |
+| `project` | `Project` sérialisable (format `fabvents.project`, version 5) : plaque (contour, zone perforée), disposition, forme, bords, fabrication (dont dépouille et dalles de l'export STEP), contrôleurs, éléments de plaque (trous de fixation, zones réservées). Lecture avec contrôle du format et de la version. |
 | `validate` | Contrôle des valeurs : erreurs (motif non calculé) et avertissements, par code stable et chemin de champ. |
 | `geom` | `Vec2`, aires, distances point / segment / âme, arcs en *bulge*. |
 | `contour` | Contour exact : cercle, ou sommets avec arcs (*bulge*) ; contour d'une âme arrondie (somme de Minkowski) ; aire exacte ; facettisation à flèche donnée (ADR-0005). |
 | `region` | Région plane en âme + arrondi (disque, rectangle arrondi, polygone) : distance signée, contenance d'un trou, écart, contour, élargissement. |
 | `plate` | Plaque et zone perforée en régions : distance signée, contour exact, aire, contour de la zone perforable (plaque réduite de la marge ∩ zone). |
-| `boolean` | Booléens `i_overlay` : décalage d'un contour, union des perforations coupée par la zone et privée des zones réservées, îlots. |
+| `boolean` | Booléens `i_overlay` : décalage d'un contour, union des perforations coupée par la zone et privée des zones réservées, îlots, combinaison des calques d'une forme. |
 | `import` | Contour importé d'un SVG (chemins, formes, transformations, unités) ou d'un DXF (polylignes à *bulge*, cercles, ellipses, lignes et arcs chaînés) : contour extérieur et découpes intérieures. |
 | `templates` | Gabarits de grilles de ventilateur 40 à 140 mm (entraxe, Ø des vis, ouverture). |
 | `layout` | Dispositions → germes (position, angle propre, contour imposé) : grille, aléatoire (Bridson à rayon variable), spirale, concentrique, Fibonacci, hachures croisées, chemin, Voronoï (cellules), lignes fluides (polylignes). Les dispositions à espacement libre lisent le canal Espacement. |
@@ -40,7 +40,7 @@ Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`, `i_ov
 | `curve` | Tracés : aplatissement à congés, subdivision, décalage parallèle, distance et côté (avec prolongement), placement à espacement variable le long d'un tracé. |
 | `raster` | Image d'un contrôleur : décodage base64, luminance bilinéaire en un point de la plaque. |
 | `rng` | Aléatoire reproductible (SplitMix64) et tirage attaché à une position. |
-| `shape` | Forme d'un trou à une taille et un angle donnés : âme, arrondi, rayon englobant, aire. |
+| `shape` | Forme d'un trou à une taille et un angle donnés : âme, arrondi, rayon englobant, aire. `PreparedShape`, préparée une fois par calcul : forme dessinée (calques facettisés, symétries, union / soustraction, réponse au canal Taille, pivot ; contour mis en cache par taille), morphing (contours rééchantillonnés et appariés, exacts aux deux bouts) ; forme importée d'un SVG / DXF. |
 | `field` | Contrôleurs préparés (tracés aplatis, image décodée) ; poids avec options (côté, prolongement, remplissage, image) ; mélange pondéré par canal, symétrie, paliers, bornes du canal, disparition aléatoire (ADR-0004, ADR-0006). |
 | `pipeline` | Calcul par étages avec cache (germes → trous → mesures → découpe → pièces STEP) ; messages du calcul. |
 | `fit` | Contours exacts des découpes : arcs retrouvés sur les cercles connus (trous, gardes, zone, plaque), raccords recalés sur les intersections exactes, segments alignés fusionnés (RDP). |
@@ -69,7 +69,7 @@ Project ─► validate ─► erreurs ? ─oui─► aucun trou, messages
 
 ### `fabvents-wasm`
 
-Pont `wasm-bindgen` : `Engine.compute(json)` renvoie la géométrie à dessiner en tableaux plats (cercles `x, y, r` ; autres contours et découpes facettisés à 0,02 mm ; contours de la plaque et de la zone perforée ; perforations en cause et coupes des dalles de l'export STEP) et un rapport JSON ; `export_svg`, `export_dxf`, `export_step` et `export_step_zip` (date de l'en-tête fournie par l'interface : le moteur n'a pas d'horloge), `read_project` (JSON ou SVG FabVents), `import_outline` (SVG ou DXF quelconque), `fan_template`, `example_project`, `default_project`. Les erreurs sortent par leur code stable, traduit par l'interface. Le `Pipeline` reste en mémoire entre deux appels : seul l'étage modifié est recalculé.
+Pont `wasm-bindgen` : `Engine.compute(json)` renvoie la géométrie à dessiner en tableaux plats (cercles `x, y, r` ; autres contours et découpes facettisés à 0,02 mm ; contours de la plaque et de la zone perforée ; perforations en cause et coupes des dalles de l'export STEP) et un rapport JSON ; `export_svg`, `export_dxf`, `export_step` et `export_step_zip` (date de l'en-tête fournie par l'interface : le moteur n'a pas d'horloge), `read_project` (JSON ou SVG FabVents), `import_outline` (SVG ou DXF quelconque), `import_shape` et `shape_preview` (atelier de formes), `fan_template`, `example_project`, `default_project`. Les erreurs sortent par leur code stable, traduit par l'interface. Le `Pipeline` reste en mémoire entre deux appels : seul l'étage modifié est recalculé.
 
 ## Interface (`ui/`)
 
@@ -91,10 +91,11 @@ Svelte 5 (runes) + Vite + TypeScript, icônes `@lucide/svelte`, police Inter : m
 - **État** : [store.svelte.ts](../ui/src/lib/store.svelte.ts). Toute modification passe par `edit()` (une étape d'annulation, fusionnée quand la même valeur change de suite) ou par un geste `begin()` … `end()` (glisser une poignée, faire défiler un libellé). Le projet est sauvegardé dans le navigateur 400 ms après chaque changement et repris au lancement.
 - **Moteur** : [engine.ts](../ui/src/lib/engine.ts) et [engine.worker.ts](../ui/src/lib/engine.worker.ts). Un seul calcul en cours ; si le projet change entre-temps, seul le plus récent est envoyé. Les tableaux de géométrie sont transférés sans copie.
 - **Canevas** : [Canvas.svelte](../ui/src/components/Canvas.svelte), Canvas 2D, un chemin par famille (cercles, polygones), redessiné à la trame suivante. Couleurs lues dans les jetons du thème. Recadrage automatique tant que l'utilisateur n'a pas touché à la vue. Il édite les **éléments** de l'onglet affiché (`store.items`) : contrôleurs du canal, ou tracés de la disposition Chemin. Poignées, distances, déplacements, conversions et mise à l'échelle : [geometry.ts](../ui/src/lib/geometry.ts) ; images : [image.ts](../ui/src/lib/image.ts) (réduction à 200 px, luminance en base64, rendu mis en cache) ; menu contextuel : [ContextMenu.svelte](../ui/src/components/ContextMenu.svelte).
+- **Atelier de formes** : [ShapeWorkshop.svelte](../ui/src/components/ShapeWorkshop.svelte), fenêtre de dessin d'une forme par calques (vue SVG, aperçu du moteur par `shape_preview`, primitives de [shapes.ts](../ui/src/lib/shapes.ts)) ; ouverte sur la forme ou sur la cible du morphing (`store.workshop`).
 - **Calcul différé** : si le premier calcul d'un geste dépasse 60 ms, les suivants attendent le relâchement (`store.deferred`) ; la barre d'état le signale.
 - **Champs numériques** : [NumField.svelte](../ui/src/components/NumField.svelte), unités converties à l'affichage seulement, flèches, défilement par le libellé, soulignés en rouge quand le moteur signale une erreur sur leur champ.
 - **Langues** : `t('clé')`, [fr.ts](../ui/src/lib/locales/fr.ts) de référence, [en.ts](../ui/src/lib/locales/en.ts) vérifié par TypeScript ; messages du moteur rendus par [issues.ts](../ui/src/lib/issues.ts).
 
 ## Décisions
 
-Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006), découpe et éléments de plaque (0007), export STEP en B-Rep explicite (0008).
+Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006), découpe et éléments de plaque (0007), export STEP en B-Rep explicite (0008), Voronoï et lignes fluides (0009), atelier de formes et morphing (0010).

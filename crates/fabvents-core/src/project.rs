@@ -15,7 +15,7 @@ use crate::geom::Vec2;
 use serde::{Deserialize, Serialize};
 
 pub const FORMAT: &str = "fabvents.project";
-pub const VERSION: u32 = 4;
+pub const VERSION: u32 = 5;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -614,6 +614,9 @@ pub struct Shape {
     pub size: f64,
     /// Rotation de la forme (degrés). Valeur de base du canal Angle.
     pub rotation: f64,
+    /// Forme cible du canal Forme (morphing) : 0 donne `kind`, 1 la cible.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub morph: Option<Box<ShapeKind>>,
 }
 
 impl Default for Shape {
@@ -622,6 +625,7 @@ impl Default for Shape {
             kind: ShapeKind::Circle,
             size: 5.0,
             rotation: 0.0,
+            morph: None,
         }
     }
 }
@@ -639,6 +643,101 @@ pub enum ShapeKind {
     Star { points: u32, inner: f64 },
     /// Fente oblongue : largeur = longueur × `aspect` (0 < aspect ≤ 1).
     Slot { aspect: f64 },
+    /// Forme dessinée dans l'atelier de formes.
+    Custom(CustomShape),
+}
+
+/// Forme dessinée : calques combinés (union, soustraction), dans un repère
+/// où 1 = la taille de la forme, centré sur le point de pivot.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CustomShape {
+    pub layers: Vec<ShapeLayer>,
+    /// Point autour duquel la forme tourne et grandit ; posé sur le germe.
+    pub pivot: Vec2,
+}
+
+impl Default for CustomShape {
+    fn default() -> Self {
+        Self {
+            layers: vec![ShapeLayer::default()],
+            pivot: Vec2::ZERO,
+        }
+    }
+}
+
+/// Rôle d'un calque dans la forme.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerRole {
+    #[default]
+    Union,
+    Subtract,
+}
+
+/// Symétrie d'un calque autour du pivot (copies soudées par union).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Symmetry {
+    #[default]
+    None,
+    /// Miroir par rapport à l'axe vertical, horizontal, ou aux deux.
+    Mirror { vertical: bool, horizontal: bool },
+    /// `count` copies tournées de 360° / `count`.
+    Radial { count: u32 },
+}
+
+/// Un calque : contour fermé de nœuds, droits ou courbes de Bézier, avec
+/// congés aux coins droits.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ShapeLayer {
+    pub nodes: Vec<ShapeNode>,
+    pub role: LayerRole,
+    #[serde(skip_serializing_if = "is_default")]
+    pub symmetry: Symmetry,
+    /// Réponse au canal Taille : 1 suit la taille, 0 garde la taille de base.
+    pub response: f64,
+}
+
+impl Default for ShapeLayer {
+    /// Carré de côté 1 centré sur le pivot.
+    fn default() -> Self {
+        Self {
+            nodes: [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)]
+                .into_iter()
+                .map(|(x, y)| ShapeNode::at(Vec2::new(x, y)))
+                .collect(),
+            role: LayerRole::Union,
+            symmetry: Symmetry::None,
+            response: 1.0,
+        }
+    }
+}
+
+/// Nœud d'un calque. Poignées de Bézier relatives au nœud : `handle_in`
+/// règle la courbe qui arrive, `handle_out` celle qui part. Le congé ne
+/// s'applique qu'entre deux segments droits.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ShapeNode {
+    pub at: Vec2,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub fillet: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handle_in: Option<Vec2>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handle_out: Option<Vec2>,
+}
+
+impl ShapeNode {
+    pub fn at(at: Vec2) -> Self {
+        Self {
+            at,
+            fillet: 0.0,
+            handle_in: None,
+            handle_out: None,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -711,6 +810,8 @@ pub struct Controller {
     pub spacing: Option<Influence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub angle: Option<Influence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub morph: Option<Influence>,
 }
 
 impl Controller {
@@ -723,6 +824,7 @@ impl Controller {
             extend: false,
             fill: false,
             size: None,
+            morph: None,
             spacing: None,
             angle: None,
         }
@@ -733,6 +835,7 @@ impl Controller {
             Channel::Size => self.size.as_ref(),
             Channel::Spacing => self.spacing.as_ref(),
             Channel::Angle => self.angle.as_ref(),
+            Channel::Morph => self.morph.as_ref(),
         }
     }
 }
@@ -883,6 +986,8 @@ pub enum Channel {
     Size,
     Spacing,
     Angle,
+    /// Morphing vers la forme cible (0 à 1).
+    Morph,
 }
 
 fn is_false(b: &bool) -> bool {
