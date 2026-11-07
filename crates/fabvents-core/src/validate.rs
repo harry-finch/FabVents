@@ -14,6 +14,8 @@ pub const MAX_POLYGON_SIDES: u32 = 64;
 pub const MAX_PATH_ROWS: u32 = 50;
 /// Copies au plus d'une symétrie radiale.
 pub const MAX_RADIAL: u32 = 12;
+/// Longueur au plus d'un script (caractères).
+pub const MAX_SCRIPT: usize = 100_000;
 /// Itérations de Lloyd au plus.
 pub const MAX_RELAX: u32 = 20;
 /// Dépouille maximale (degrés).
@@ -150,6 +152,16 @@ pub fn validate(p: &Project) -> Vec<Issue> {
             non_negative(l.fillet, "layout.fillet", &mut out);
             if l.relax > MAX_RELAX {
                 out.push(Issue::error("value.out_of_range", "layout.relax").value(l.relax as f64));
+            }
+        }
+        Layout::Script(l) => {
+            if l.source.len() > MAX_SCRIPT {
+                out.push(
+                    Issue::error("value.out_of_range", "layout.source").value(MAX_SCRIPT as f64),
+                );
+            }
+            for (k, v) in &l.params {
+                finite(*v, &format!("layout.params.{k}"), &mut out);
             }
         }
         Layout::Flow(l) => {

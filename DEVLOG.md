@@ -124,3 +124,22 @@ v0.5 validée par l'utilisateur.
 - Disque obtenu par congés 0,24 % trop petit : flèche des calques ramenée de 0,01 à 0,004 mm.
 - Rangées de formes qui passaient à la ligne dans le panneau (six et sept boutons) ; étiquette du canevas du canal Forme en mm au lieu de %.
 - Contrôle FreeCAD complet trop lent sur 150 000 faces planes : validation sur un panneau de 60 mm.
+
+## 2026-11-07 — v0.6 validée ; v0.7 : bureau et automatisation
+
+v0.6 validée par l'utilisateur.
+
+**Choix** (ADR-0011).
+- Solveur de taux d'ouverture dans le moteur : dichotomie sur la taille de base ou l'espacement, sans jamais passer sous la nervure mini ; meilleur réglage rendu et signalé si la cible est hors d'atteinte.
+- Préréglages dans l'interface (bibliothèque du poste, fichier `fabvents.presets`), adaptés à la plaque en cours.
+- Crate `fabvents-cli` : binaire `fabvents` (info, export, solve, template) et serveur MCP sur stdio, sans framework ; aperçu PNG par `tiny-skia`.
+- Dispositions scriptées en Rhai (bac à sable), curseurs déclarés par le script ; messages du moteur avec un champ `detail`.
+- Application de bureau Tauri 2 : l'interface et le moteur WebAssembly tels quels, commandes Rust pour les fichiers.
+
+**Vérification.** 151 tests ; parcours dans le navigateur ; CLI et session MCP réelle ; application de bureau construite.
+
+**Défauts corrigés pendant la vérification.**
+- Préréglage non appliqué : le projet venait d'une liste réactive (proxy Svelte) que `structuredClone` refuse ; instantané à la place, et geste d'annulation fermé même en cas d'erreur.
+- Cible du canal Forme mise à l'échelle comme une longueur au redimensionnement (100 % → 141 %) : seules les cibles Taille et Espacement suivent l'échelle.
+- Moteur WebAssembly à 3,2 Mo avec Rhai : fermetures et entiers 32 bits retirés, 2,8 Mo.
+- CLI Tauri 2.12 incompatible avec Rust 1.88 : 2.11.5 épinglée.

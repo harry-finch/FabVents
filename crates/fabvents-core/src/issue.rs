@@ -25,6 +25,9 @@ pub struct Issue {
     pub value: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count: Option<usize>,
+    /// Précision libre, non traduite (message d'erreur d'un script).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 impl Issue {
@@ -35,6 +38,7 @@ impl Issue {
             field: None,
             value: None,
             count: None,
+            detail: None,
         }
     }
 
@@ -60,6 +64,11 @@ impl Issue {
 
     pub fn value(mut self, v: f64) -> Self {
         self.value = Some(v);
+        self
+    }
+
+    pub fn detail(mut self, d: impl Into<String>) -> Self {
+        self.detail = Some(d.into());
         self
     }
 

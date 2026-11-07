@@ -19,7 +19,7 @@ Périmètre fonctionnel de FabVents, établi à partir de l'inventaire des fonct
 | LAY-09 | Orientation selon le chemin (concentrique, spirale, chemin) | v0.2 | fait |
 | LAY-10 | Voronoï : Lloyd, nervures variables, congés aux sommets | v0.5 | fait |
 | LAY-11 | Lignes fluides : rubans d'épaisseur et de courbure variables | v0.5 | fait |
-| LAY-12 | Disposition scriptée (« IA sur mesure ») avec curseurs déclarés | v0.7 | prévu |
+| LAY-12 | Disposition scriptée (« IA sur mesure ») avec curseurs déclarés | v0.7 | fait |
 
 ## Contrôleurs et canaux (FLD)
 
@@ -76,7 +76,7 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | FAB-03 | *Ajout* : trous trop petits supprimés et comptés (jamais en silence) | v0.1 | fait |
 | FAB-04 | Chevauchements détectés et signalés | v0.1 | fait |
 | FAB-05 | Taux d'ouverture exact (booléens) avec chevauchements et découpe | v0.3 | fait |
-| FAB-06 | Solveur de taux d'ouverture cible (dichotomie) | v0.7 | prévu |
+| FAB-06 | Solveur de taux d'ouverture cible (dichotomie) | v0.7 | fait |
 
 ## Exports et fichiers (EXP)
 
@@ -91,7 +91,7 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | EXP-07 | STEP : découpage en dalles (ZIP ou assemblage) | v0.4 | fait |
 | EXP-08 | STEP : angle de dépouille avec validation | v0.4 | fait |
 | EXP-09 | DXF : arcs exacts (*bulge*), simplification RDP (découpes et congés, tous les exports) | v0.4 | fait |
-| EXP-10 | Préréglages : bibliothèque locale, adaptation aux proportions | v0.7 | prévu |
+| EXP-10 | Préréglages : bibliothèque locale, adaptation aux proportions | v0.7 | fait |
 | EXP-11 | Wrap : projection sur une face 3D courbe | — | hors périmètre |
 
 ## Canevas et ergonomie (UX)
@@ -107,8 +107,8 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | UX-07 | Outil Règle | v0.2 | fait |
 | UX-08 | Redimensionnement proportionnel du motif | v0.2 | fait |
 | UX-09 | Calcul différé au relâchement pour les très grands motifs | v0.2 | fait |
-| UX-10 | Application de bureau (Tauri) | v0.7 | prévu |
-| UX-11 | CLI et serveur MCP | v0.7 | prévu |
+| UX-10 | Application de bureau (Tauri) | v0.7 | fait |
+| UX-11 | CLI et serveur MCP | v0.7 | fait |
 
 ## Pistes techniques de la recherche : retenues et écartées
 
@@ -127,5 +127,5 @@ Quatre canaux : **Taille**, **Espacement**, **Angle**, **Forme**. Un contrôleur
 | STEP `EXTRUDED_AREA_SOLID` | Écartée | Entité de géométrie constructive peu lue par les importeurs AP214 ; B-Rep explicite à la place (v0.4). |
 | STEP via `truck` | Écartée (v0.4) | Générateur B-Rep maison (ADR-0008) : arcs, cônes et dalles exacts sans noyau NURBS, fichiers validés dans FreeCAD. |
 | Wrap (OpenCascade, LSCM / ARAP) | Hors périmètre | Coût sans commune mesure avec le reste. |
-| `rhai` pour les dispositions scriptées | Retenue (v0.7) | Bac à sable, limite d'opérations. |
-| Aperçu PNG pour MCP (`tiny-skia`) | Retenue (v0.7) | Rendu sans fenêtre. |
+| `rhai` pour les dispositions scriptées | Retenue (v0.7) | Bac à sable sans horloge ni modules, opérations bornées ; +1,5 Mo de WebAssembly (ADR-0011). |
+| Aperçu PNG pour MCP (`tiny-skia`) | Retenue (v0.7) | Rendu sans fenêtre, dans la CLI seulement (le moteur reste léger). |

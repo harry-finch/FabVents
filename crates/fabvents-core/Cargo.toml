@@ -14,3 +14,5 @@ roxmltree = "0.21.1"
 serde.workspace = true
 serde_json.workspace = true
 svgtypes = "0.16.1"
+# Dispositions scriptées : bac à sable, sans horloge (déterministe, WebAssembly).
+rhai = { version = "1.20", default-features = false, features = ["std", "no_time", "no_module", "no_custom_syntax", "no_closure", "only_i64"] }

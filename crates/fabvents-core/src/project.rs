@@ -265,6 +265,7 @@ pub enum Layout {
     Path(PathLayout),
     Voronoi(Voronoi),
     Flow(Flow),
+    Script(ScriptLayout),
 }
 
 impl Layout {
@@ -280,6 +281,7 @@ impl Layout {
             Layout::Path(l) => Some(l.spacing),
             Layout::Voronoi(l) => Some(l.spacing),
             Layout::Flow(l) => Some(l.spacing),
+            Layout::Script(_) => None,
         }
     }
 
@@ -533,6 +535,27 @@ impl Default for Voronoi {
             seed: 1,
             rib: 1.5,
             fillet: 1.0,
+        }
+    }
+}
+
+/// Disposition scriptée : un script Rhai place les germes et déclare ses
+/// curseurs (voir `script`) ; `params` garde la valeur de chaque curseur.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ScriptLayout {
+    pub source: String,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub params: std::collections::BTreeMap<String, f64>,
+    pub seed: u64,
+}
+
+impl Default for ScriptLayout {
+    fn default() -> Self {
+        Self {
+            source: crate::script::EXAMPLE.to_string(),
+            params: Default::default(),
+            seed: 1,
         }
     }
 }

@@ -10,6 +10,7 @@
   import StatusBar from './components/StatusBar.svelte';
   import HelpDialog from './components/HelpDialog.svelte';
   import ShapeWorkshop from './components/ShapeWorkshop.svelte';
+  import PresetsDialog from './components/PresetsDialog.svelte';
   import { store } from './lib/store.svelte';
   import { t } from './lib/i18n.svelte';
   import { exportAs, isImageFile, openFile, pickFile, pickImage } from './lib/files';
@@ -54,7 +55,7 @@
   }
 
   function keydown(e: KeyboardEvent) {
-    if (!store.project || store.help || store.workshop) return;
+    if (!store.project || store.help || store.workshop || store.presetsOpen) return;
     const mod = e.metaKey || e.ctrlKey;
     const k = e.key.toLowerCase();
     if (mod && !typing(e)) {
@@ -158,6 +159,7 @@
 
 {#if store.help}<HelpDialog />{/if}
 {#if store.workshop}<ShapeWorkshop />{/if}
+{#if store.presetsOpen}<PresetsDialog />{/if}
 
 <div class="toasts" aria-live="polite">
   {#each store.toasts as tt (tt.id)}

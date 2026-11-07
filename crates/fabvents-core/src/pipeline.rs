@@ -89,6 +89,8 @@ pub struct Frame<'a> {
     pub metrics: Metrics,
     pub stats: Stats,
     pub issues: Vec<Issue>,
+    /// Curseurs déclarés par une disposition scriptée.
+    pub sliders: &'a [crate::script::Slider],
     /// Pièces à extruder et contrôles de l'export STEP, calculés seulement
     /// quand une dépouille ou des dalles sont demandées (sinon vide).
     pub plan: &'a SolidPlan,
@@ -184,6 +186,7 @@ impl Pipeline {
                 stats: Stats::default(),
                 issues,
                 plan: &self.empty_plan,
+                sliders: &[],
             };
         }
 
@@ -249,6 +252,7 @@ impl Pipeline {
                 stats: Stats::default(),
                 issues,
                 plan: &self.empty_plan,
+                sliders: &[],
             };
         }
 
@@ -286,6 +290,7 @@ impl Pipeline {
                 stats: self.stats,
                 issues,
                 plan: &self.empty_plan,
+                sliders: &[],
             };
         }
 
@@ -409,6 +414,7 @@ impl Pipeline {
             stats: self.stats,
             issues,
             plan: &self.plan,
+            sliders: &self.seeds.sliders,
         }
     }
 
@@ -1044,6 +1050,25 @@ mod tests {
             f.holes.iter().any(|h| h.geom.core.len() == 128),
             "formes intermédiaires"
         );
+    }
+
+    #[test]
+    fn scripted_layout_places_holes_and_reports_errors() {
+        let mut p = panel(Layout::Script(crate::project::ScriptLayout::default()));
+        let mut pl = Pipeline::new();
+        let f = pl.compute(&p);
+        assert!(f.holes.len() > 50, "{}", f.holes.len());
+        assert_eq!(f.sliders.len(), 3);
+        if let Layout::Script(s) = &mut p.layout {
+            s.source = "point(10.0, 10.0);\nlet = 3;".into();
+        }
+        let f = pl.compute(&p);
+        let e = f
+            .issues
+            .iter()
+            .find(|i| i.code == "layout.script_error")
+            .unwrap();
+        assert!(e.detail.as_deref().unwrap().contains("ligne 2"), "{e:?}");
     }
 
     #[test]

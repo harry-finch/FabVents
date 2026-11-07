@@ -233,6 +233,40 @@
         <span class="val tabular">{l.seed}</span>
         <button class="btn quiet grow-right" type="button" use:tip={t('layout.reroll')} onclick={() => setL('seed', (l.seed % 99999) + 1)}><Dices size={14} /> {t('ctrl.rerollShort')}</button>
       </Field>
+    {:else if l.mode === 'script'}
+      <p class="sub" use:tip={t('layout.scriptHint')}>{t('layout.script')}</p>
+      <textarea
+        class="input code"
+        rows="14"
+        spellcheck="false"
+        aria-label={t('layout.script')}
+        value={l.source}
+        oninput={(e) => {
+          const v = (e.currentTarget as HTMLTextAreaElement).value;
+          store.edit((q) => q.layout.mode === 'script' && (q.layout.source = v), 'layout.source');
+        }}
+      ></textarea>
+      {#each store.frame?.report.sliders ?? [] as sl (sl.name)}
+        <NumField
+          label={sl.name}
+          hint={t('layout.sliderHint', { min: sl.min, max: sl.max, value: sl.default })}
+          kind="plain"
+          min={sl.min}
+          max={sl.max}
+          decimals={2}
+          step={(sl.max - sl.min) / 100}
+          value={sl.value}
+          onchange={(v) =>
+            store.edit((q) => {
+              if (q.layout.mode !== 'script') return;
+              q.layout.params = { ...(q.layout.params ?? {}), [sl.name]: v };
+            }, `layout.params.${sl.name}`)}
+        />
+      {/each}
+      <Field label={t('layout.seed')} hint={t('layout.scriptSeedHint')}>
+        <span class="val tabular">{l.seed}</span>
+        <button class="btn quiet grow-right" type="button" use:tip={t('layout.reroll')} onclick={() => setL('seed', (l.seed % 99999) + 1)}><Dices size={14} /> {t('ctrl.rerollShort')}</button>
+      </Field>
     {:else if l.mode === 'flow'}
       <NumField label={t('layout.lineGap')} hint={t('layout.lineGapHint')} field="layout.spacing" min={0} value={l.spacing} onchange={(v) => setL('spacing', v)} />
       <NumField label={t('layout.ribbon')} hint={t('layout.ribbonHint')} field="layout.width" min={0} value={l.width} onchange={(v) => setL('width', v)} />
@@ -410,6 +444,17 @@
     margin: var(--s1) 0 0;
     color: var(--text-secondary);
     font-size: var(--fs-sm);
+  }
+
+  .code {
+    width: 100%;
+    height: auto;
+    min-height: 200px;
+    padding: var(--s2);
+    font: 11.5px/1.45 var(--mono);
+    resize: vertical;
+    white-space: pre;
+    tab-size: 4;
   }
 
   .note {

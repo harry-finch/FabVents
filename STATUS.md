@@ -1,6 +1,6 @@
 # État du projet
 
-**Jalon** : **v0.6 — atelier de formes et morphing**, livrée pour essai (06/11/2026). v0.1 à v0.5 validées par l'utilisateur. Prochain jalon : v0.7 (bureau et automatisation), voir [ROADMAP.md](ROADMAP.md).
+**Jalon** : **v0.7 — bureau et automatisation**, livrée pour essai (07/11/2026). v0.1 à v0.6 validées par l'utilisateur. Prochain jalon : v1.0 (publication), voir [ROADMAP.md](ROADMAP.md).
 
 | Élément | État |
 | --- | --- |
@@ -14,9 +14,10 @@
 | Export STEP | Fabrication → Export STEP : dépouille (± 45°), dalles colonnes × rangées (1 à 20) ; perforations en cause en rouge, coupes des dalles en pointillés ; export refusé avec la raison si la dépouille ferme ou perce une paroi, si une coupe traverse une paroi en dépouille, si un trou de fixation déborde |
 | Dispositions v0.5 | **Voronoï** (taille des cellules, nervure, congé, relaxation de Lloyd pondérée, tirage) ; **lignes fluides** (écart, largeur, direction, bouts ronds ou plats) ; canaux Taille, Espacement et Angle repris (nervure / largeur, densité / écart, direction) |
 | Formes v0.6 | **Forme dessinée** (atelier : calques union / soustraction, primitives cotées, nœuds, Bézier, congés, symétries miroir et radiale, réponse au canal Taille, pivot, import SVG / DXF) ; **canal Forme** (touche 6) : morphing vers une forme cible simple ou dessinée |
+| Automatisation v0.7 | **Viser un taux d'ouverture** (Mesures : taille ou espacement, nervure mini respectée, meilleur réglage signalé) ; **préréglages** (Fichier : bibliothèque du poste, import / export, adaptés à la plaque en cours) ; disposition **Script** (Rhai, curseurs déclarés par le script) ; binaire **`fabvents`** (info, export, solve, template, serveur **MCP**) ; **application de bureau** Tauri (fenêtres natives, enregistrement sur place, fichiers récents) |
 | Fichiers | Format de projet v5 ; v1 à v4 se lisent tels quels |
-| Tests | `cargo test --workspace` : 136 tests verts ; clippy : 0 avertissement ; `npm run check` : 0 erreur ; `npm run build` |
-| Vérifié | FreeCAD : STEP des v0.4 et v0.5, et trois panneaux de formes dessinées / morphing valides au volume calculé. Navigateur : passage d'un cercle à une forme dessinée, calque étoile en soustraction (îlot signalé, puis encoches quand une branche sort), forme cible Cercle et contrôleur du canal Forme. Mesures natives : 1 435 croix en 36 ms, morphing en 61 ms |
+| Tests | `cargo test --workspace` : 151 tests verts ; clippy : 0 avertissement ; `npm run check` : 0 erreur ; `npm run build` |
+| Vérifié | Navigateur : solveur (30 % hors d'atteinte → 25,9 % au mieux, nervure 1 mm), préréglage enregistré puis appliqué à une plaque 240 × 120 (pas × √2), script d'exemple et ses trois curseurs, exports toujours téléchargés. CLI : gabarit, solveur, exports SVG / STEP / PNG, session MCP réelle sur stdio. FreeCAD : STEP des jalons précédents |
 | Non vérifié | STEP dans Fusion 360, PrusaSlicer, SolidWorks ; DXF réels importés ; exports relus dans LightBurn ; découpe et impression d'une pièce |
 
 ## Points ouverts
@@ -31,7 +32,9 @@
 - Lignes fluides : semées sur la transverse au centre ; une zone qu'elle ne traverse pas reste vide ; bouts ronds facettisés dans le STEP.
 - Formes dessinées et formes intermédiaires du morphing : polygones facettisés à 0,004 mm (pas d'arcs dans le DXF ni le STEP) ; îlots et pièces détachées écartés (signalé) ; une cible simple prend ses paramètres par défaut.
 - Atelier : pas d'outil plume à main levée (ajout de nœuds par double-clic sur un bord).
+- Application de bureau non signée (macOS : clic droit → Ouvrir au premier lancement) ; CLI Tauri épinglée en 2.11.5 (Rust 1.88).
+- Moteur WebAssembly de 2,8 Mo (880 Ko compressé) depuis l'ajout de Rhai.
 
 ## Prochaine action
 
-Tester la v0.6 (liste dans le message de livraison), puis lancer la v0.7.
+Tester la v0.7 (liste dans le message de livraison), dont l'application de bureau et le serveur MCP dans Claude Code, puis préparer la v1.0.

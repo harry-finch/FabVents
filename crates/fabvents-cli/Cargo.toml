@@ -1,0 +1,18 @@
+[package]
+name = "fabvents-cli"
+description = "FabVents en ligne de commande et serveur MCP (stdio) : générer, mesurer, viser un taux d'ouverture, exporter, aperçu PNG"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "fabvents"
+path = "src/main.rs"
+
+[dependencies]
+fabvents-core = { path = "../fabvents-core" }
+serde_json.workspace = true
+tiny-skia = "0.11"

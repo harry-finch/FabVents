@@ -34,9 +34,11 @@ Bibliothèque pure et déterministe (dépendances : `serde`, `serde_json`, `i_ov
 | `boolean` | Booléens `i_overlay` : décalage d'un contour, union des perforations coupée par la zone et privée des zones réservées, îlots, combinaison des calques d'une forme. |
 | `import` | Contour importé d'un SVG (chemins, formes, transformations, unités) ou d'un DXF (polylignes à *bulge*, cercles, ellipses, lignes et arcs chaînés) : contour extérieur et découpes intérieures. |
 | `templates` | Gabarits de grilles de ventilateur 40 à 140 mm (entraxe, Ø des vis, ouverture). |
-| `layout` | Dispositions → germes (position, angle propre, contour imposé) : grille, aléatoire (Bridson à rayon variable), spirale, concentrique, Fibonacci, hachures croisées, chemin, Voronoï (cellules), lignes fluides (polylignes). Les dispositions à espacement libre lisent le canal Espacement. |
+| `layout` | Dispositions → germes (position, angle propre, contour imposé) : grille, aléatoire (Bridson à rayon variable), spirale, concentrique, Fibonacci, hachures croisées, chemin, Voronoï (cellules), lignes fluides (polylignes), script (Rhai). Les dispositions à espacement libre lisent le canal Espacement. |
 | `voronoi` | Cellules par découpe de demi-plans, relaxation de Lloyd pondérée par la densité voulue, réduction exacte d'une cellule (nervure). |
 | `flow` | Lignes fluides : lignes de courant (Runge-Kutta 2) semées sur une transverse, écart minimal entre lignes, arrêt au bord et aux trous de fixation ; rubans de largeur variable nettoyés par `i_overlay`. |
+| `solve` | Solveur de taux d'ouverture : dichotomie sur la taille de base ou l'espacement, nervure mini respectée, meilleur réglage si la cible est hors d'atteinte. |
+| `script` | Dispositions scriptées (Rhai en bac à sable) : germes, curseurs déclarés, aléatoire de la graine, erreurs situées. |
 | `curve` | Tracés : aplatissement à congés, subdivision, décalage parallèle, distance et côté (avec prolongement), placement à espacement variable le long d'un tracé. |
 | `raster` | Image d'un contrôleur : décodage base64, luminance bilinéaire en un point de la plaque. |
 | `rng` | Aléatoire reproductible (SplitMix64) et tirage attaché à une position. |
@@ -67,9 +69,17 @@ Project ─► validate ─► erreurs ? ─oui─► aucun trou, messages
           ─► Frame : trous, découpes, mesures, statistiques, messages, pièces
 ```
 
+### `fabvents-cli`
+
+Binaire `fabvents` : `info`, `export` (selon l'extension), `solve`, `template`, `example`, et `mcp` (serveur Model Context Protocol, JSON-RPC 2.0 ligne à ligne sur stdio : guide, nouveau projet, calcul, solveur, aperçu PNG, export). Aperçu PNG rendu sans fenêtre par `tiny-skia`.
+
+### `fabvents-desktop`
+
+Application Tauri 2 : la même interface et le même moteur WebAssembly dans une fenêtre native ; commandes Rust pour les fenêtres d'ouverture et d'enregistrement (greffon `dialog`), l'enregistrement sur place et les fichiers récents (`recent.json` dans le dossier de données). L'interface les appelle par `window.__TAURI__` ([desktop.ts](../ui/src/lib/desktop.ts)) ; dans un navigateur, elle télécharge comme avant.
+
 ### `fabvents-wasm`
 
-Pont `wasm-bindgen` : `Engine.compute(json)` renvoie la géométrie à dessiner en tableaux plats (cercles `x, y, r` ; autres contours et découpes facettisés à 0,02 mm ; contours de la plaque et de la zone perforée ; perforations en cause et coupes des dalles de l'export STEP) et un rapport JSON ; `export_svg`, `export_dxf`, `export_step` et `export_step_zip` (date de l'en-tête fournie par l'interface : le moteur n'a pas d'horloge), `read_project` (JSON ou SVG FabVents), `import_outline` (SVG ou DXF quelconque), `import_shape` et `shape_preview` (atelier de formes), `fan_template`, `example_project`, `default_project`. Les erreurs sortent par leur code stable, traduit par l'interface. Le `Pipeline` reste en mémoire entre deux appels : seul l'étage modifié est recalculé.
+Pont `wasm-bindgen` : `Engine.compute(json)` renvoie la géométrie à dessiner en tableaux plats (cercles `x, y, r` ; autres contours et découpes facettisés à 0,02 mm ; contours de la plaque et de la zone perforée ; perforations en cause et coupes des dalles de l'export STEP) et un rapport JSON ; `export_svg`, `export_dxf`, `export_step` et `export_step_zip` (date de l'en-tête fournie par l'interface : le moteur n'a pas d'horloge), `read_project` (JSON ou SVG FabVents), `import_outline` (SVG ou DXF quelconque), `import_shape` et `shape_preview` (atelier de formes), `solve_open_ratio`, `script_example`, `fan_template`, `example_project`, `default_project`. Les erreurs sortent par leur code stable, traduit par l'interface. Le `Pipeline` reste en mémoire entre deux appels : seul l'étage modifié est recalculé.
 
 ## Interface (`ui/`)
 
@@ -92,10 +102,11 @@ Svelte 5 (runes) + Vite + TypeScript, icônes `@lucide/svelte`, police Inter : m
 - **Moteur** : [engine.ts](../ui/src/lib/engine.ts) et [engine.worker.ts](../ui/src/lib/engine.worker.ts). Un seul calcul en cours ; si le projet change entre-temps, seul le plus récent est envoyé. Les tableaux de géométrie sont transférés sans copie.
 - **Canevas** : [Canvas.svelte](../ui/src/components/Canvas.svelte), Canvas 2D, un chemin par famille (cercles, polygones), redessiné à la trame suivante. Couleurs lues dans les jetons du thème. Recadrage automatique tant que l'utilisateur n'a pas touché à la vue. Il édite les **éléments** de l'onglet affiché (`store.items`) : contrôleurs du canal, ou tracés de la disposition Chemin. Poignées, distances, déplacements, conversions et mise à l'échelle : [geometry.ts](../ui/src/lib/geometry.ts) ; images : [image.ts](../ui/src/lib/image.ts) (réduction à 200 px, luminance en base64, rendu mis en cache) ; menu contextuel : [ContextMenu.svelte](../ui/src/components/ContextMenu.svelte).
 - **Atelier de formes** : [ShapeWorkshop.svelte](../ui/src/components/ShapeWorkshop.svelte), fenêtre de dessin d'une forme par calques (vue SVG, aperçu du moteur par `shape_preview`, primitives de [shapes.ts](../ui/src/lib/shapes.ts)) ; ouverte sur la forme ou sur la cible du morphing (`store.workshop`).
+- **Préréglages** : [presets.svelte.ts](../ui/src/lib/presets.svelte.ts) (bibliothèque du poste, fichier `fabvents.presets`) et `store.applyPreset` (motif mis à l'échelle de la plaque en cours, une étape d'annulation).
 - **Calcul différé** : si le premier calcul d'un geste dépasse 60 ms, les suivants attendent le relâchement (`store.deferred`) ; la barre d'état le signale.
 - **Champs numériques** : [NumField.svelte](../ui/src/components/NumField.svelte), unités converties à l'affichage seulement, flèches, défilement par le libellé, soulignés en rouge quand le moteur signale une erreur sur leur champ.
 - **Langues** : `t('clé')`, [fr.ts](../ui/src/lib/locales/fr.ts) de référence, [en.ts](../ui/src/lib/locales/en.ts) vérifié par TypeScript ; messages du moteur rendus par [issues.ts](../ui/src/lib/issues.ts).
 
 ## Décisions
 
-Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006), découpe et éléments de plaque (0007), export STEP en B-Rep explicite (0008), Voronoï et lignes fluides (0009), atelier de formes et morphing (0010).
+Voir [adr/](adr) : workspace Rust et interface Svelte de l'écosystème FabSpeed (0001), moteur en WebAssembly dans un Web Worker (0002), formats de fichiers (0003), contrôleurs multi-canaux et mélange pondéré (0004), trous en âme + arrondi (0005), options des contrôleurs (0006), découpe et éléments de plaque (0007), export STEP en B-Rep explicite (0008), Voronoï et lignes fluides (0009), atelier de formes et morphing (0010), bureau et automatisation (0011).

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FabVents",
+  "version": "0.7.0-dev",
+  "identifier": "fr.fablab.fabvents",
+  "build": {
+    "beforeBuildCommand": "npm --prefix ../ui run build",
+    "frontendDist": "../../ui/dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "FabVents",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1000,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "category": "Utility",
+    "copyright": "© 2026 Stéphane Muller — GPL-3.0-or-later",
+    "license": "GPL-3.0-or-later",
+    "licenseFile": "../../LICENSE",
+    "shortDescription": "Motifs de perforation paramétriques pour makers et fablabs",
+    "longDescription": "FabVents génère des motifs de perforation paramétriques (grilles de ventilation, de haut-parleur, panneaux décoratifs) et les exporte en SVG, DXF, STEP et PNG. Rust et Svelte, GPL-3.0-or-later.",
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}

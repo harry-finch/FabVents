@@ -1,19 +1,21 @@
 <script lang="ts">
   // Barre d'application : identité, projet (nom et menu Fichier), unités,
   // langue, thème, aide, et l'action principale : exporter.
-  import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, Monitor, Moon, Save, Sparkles, Sun, FileImage, FileCode, FileBraces, FileText, Fan, ImageDown, Box, Grid2x2 } from '@lucide/svelte';
+  import { ChevronDown, CircleHelp, Download, FilePlus, FolderOpen, Monitor, Moon, Save, Sparkles, Sun, FileImage, FileCode, FileBraces, FileText, Fan, ImageDown, Box, Grid2x2, Bookmark } from '@lucide/svelte';
   import Popover from './Popover.svelte';
   import { theme, THEMES } from '../lib/theme.svelte';
   import { store } from '../lib/store.svelte';
   import { tip } from '../lib/tip';
   import { i18n, LOCALES, t } from '../lib/i18n.svelte';
-  import { exportAs, exportPng, pickFile } from '../lib/files';
+  import { exportAs, exportPng, openRecent, pickFile } from '../lib/files';
+  import { fileName, isDesktop, recentFiles } from '../lib/desktop';
   import { FAN_SIZES } from '../lib/types';
 
   // Texte en cours de saisie : l'encart suit sa longueur (voir `.sizer`).
   let draft = $state<string | null>(null);
   const shown = $derived(draft ?? store.p.name);
 
+  let recent = $state<string[]>([]);
   const blocked = $derived(!!store.frame?.report.issues.some((i) => i.severity === 'error'));
   // Codes du moteur qui empêchent l'export STEP (voir `solid.rs`).
   const STEP_BLOCKING = ['draft.collapse', 'draft.pierce', 'tiles.draft', 'features.outside'];
@@ -31,7 +33,16 @@
   <div class="project">
     <Popover label={t('file.menu')} width={260}>
       {#snippet trigger({ open, toggle })}
-        <button class="fbtn" class:open type="button" onclick={toggle} aria-haspopup="menu" aria-expanded={open}>
+        <button
+          class="fbtn"
+          class:open
+          type="button"
+          onclick={async () => {
+            if (isDesktop && !open) recent = await recentFiles();
+            toggle();
+          }}
+          aria-haspopup="menu"
+          aria-expanded={open}>
           {t('file.menu')}
           <ChevronDown size={13} />
         </button>
@@ -45,9 +56,16 @@
             <button class="chip tabular" type="button" use:tip={t('templates.fanHint', { size })} onclick={() => { close(); void store.applyTemplate(size); }}><Fan size={12} /> {size}</button>
           {/each}
         </div>
+        <button class="row" type="button" onclick={() => { close(); store.presetsOpen = true; }}><Bookmark size={14} /><span class="rname">{t('presets.menu')}</span></button>
         <div class="divider"></div>
         <button class="row" type="button" onclick={() => { close(); pickFile(); }}><FolderOpen size={14} /><span class="rname">{t('file.open')}</span><span class="kbd">⌘O</span></button>
         <button class="row" type="button" onclick={() => { close(); void exportAs('project'); }}><Save size={14} /><span class="rname">{t('file.save')}</span><span class="kbd">⌘S</span></button>
+        {#if recent.length}
+          <p class="sub">{t('file.recent')}</p>
+          {#each recent as path (path)}
+            <button class="row" type="button" use:tip={path} onclick={() => { close(); void openRecent(path); }}><FileText size={14} /><span class="rname">{fileName(path)}</span></button>
+          {/each}
+        {/if}
         <p class="note">{t('file.dropHint')}</p>
       {/snippet}
     </Popover>

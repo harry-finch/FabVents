@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["crates/fabvents-core", "crates/fabvents-wasm"]
+members = ["crates/fabvents-core", "crates/fabvents-wasm", "crates/fabvents-cli", "crates/fabvents-desktop"]
 
 [workspace.package]
-version = "0.6.0-dev"
+version = "0.7.0-dev"
 edition = "2021"
 rust-version = "1.88"
 authors = ["Stéphane Muller"]

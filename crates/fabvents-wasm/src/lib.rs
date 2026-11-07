@@ -158,6 +158,7 @@ impl Engine {
             "metrics": frame.metrics,
             "stats": frame.stats,
             "issues": frame.issues,
+            "sliders": frame.sliders,
             "stages": self.pipeline.last_runs,
         })
         .to_string();
@@ -296,6 +297,30 @@ pub fn shape_preview(shape_json: &str) -> Result<String, JsError> {
         json!({ "result": result, "layers": layers, "dropped": prepared.dropped_parts() })
             .to_string(),
     )
+}
+
+/// Script de départ d'une disposition scriptée.
+#[wasm_bindgen]
+pub fn script_example() -> String {
+    fabvents_core::script::EXAMPLE.to_string()
+}
+
+/// Solveur de taux d'ouverture : `{ project, solution }` (projet réglé et
+/// bilan). `param` : `size` ou `spacing` ; `target` en %.
+#[wasm_bindgen]
+pub fn solve_open_ratio(project_json: &str, target: f64, param: &str) -> Result<String, JsError> {
+    let project = read(project_json)?;
+    let param = match param {
+        "spacing" => fabvents_core::solve::SolveParam::Spacing,
+        _ => fabvents_core::solve::SolveParam::Size,
+    };
+    let (p, s) =
+        fabvents_core::solve::solve_open_ratio(&project, target, param).map_err(JsError::new)?;
+    Ok(format!(
+        "{{\"project\":{},\"solution\":{}}}",
+        p.to_json(),
+        serde_json::to_string(&s).map_err(|e| JsError::new(&e.to_string()))?
+    ))
 }
 
 /// Gabarit de grille de ventilateur (40, 60, 80, 92, 120 ou 140 mm).

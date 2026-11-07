@@ -3,6 +3,7 @@
 
 import { store } from './store.svelte';
 import { t } from './i18n.svelte';
+import { isDesktop, openFile as openNative, openPath, saveFile, writeFile, type Opened } from './desktop';
 
 export const PROJECT_EXT = '.fabvents.json';
 
@@ -15,6 +16,28 @@ export function baseName(name: string): string {
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
   return s || 'fabvents';
+}
+
+/** Filtres des fenêtres d'enregistrement de l'application de bureau. */
+const FILTERS: Record<string, string> = {
+  json: 'FabVents',
+  svg: 'SVG',
+  dxf: 'DXF',
+  step: 'STEP',
+  zip: 'ZIP',
+  png: 'PNG',
+};
+
+/** Remet un fichier à l'utilisateur : fenêtre d'enregistrement native dans
+ *  l'application de bureau, téléchargement dans le navigateur. Renvoie le
+ *  chemin choisi (bureau), `''` (navigateur) ou `null` si l'utilisateur annule. */
+export async function deliver(data: string | Uint8Array<ArrayBuffer>, filename: string, mime: string): Promise<string | null> {
+  if (isDesktop) {
+    const ext = filename.split('.').pop() ?? '';
+    return saveFile(filename, data, FILTERS[ext] ?? ext.toUpperCase(), [ext]);
+  }
+  download(data, filename, mime);
+  return '';
 }
 
 export function download(data: string | Uint8Array<ArrayBuffer>, filename: string, mime: string) {
@@ -36,21 +59,30 @@ export async function exportAs(format: 'svg' | 'dxf' | 'step' | 'step-zip' | 'pr
   const name = baseName(p.name);
   const json = JSON.stringify(p);
   if (format === 'project') {
-    download(JSON.stringify(p, null, 2), name + PROJECT_EXT, 'application/json');
-    store.toast(t('file.saved', { name: name + PROJECT_EXT }));
+    const text = JSON.stringify(p, null, 2);
+    // Bureau : un projet déjà ouvert ou enregistré l'est sur place.
+    if (isDesktop && store.filePath) {
+      await writeFile(store.filePath, text);
+      store.toast(t('file.saved', { name: store.filePath.split(/[\\/]/).pop() ?? '' }));
+      return;
+    }
+    const path = await deliver(text, name + PROJECT_EXT, 'application/json');
+    if (path == null) return;
+    if (path) store.filePath = path;
+    store.toast(t('file.saved', { name: path ? (path.split(/[\\/]/).pop() ?? '') : name + PROJECT_EXT }));
     return;
   }
   try {
     if (format === 'step-zip') {
       const bytes = await store.engine.exportStepZip(json);
       const file = `${name}-dalles.zip`;
-      download(bytes as Uint8Array<ArrayBuffer>, file, 'application/zip');
+      if ((await deliver(bytes as Uint8Array<ArrayBuffer>, file, 'application/zip')) == null) return;
       store.toast(t('file.exported', { name: file }));
       return;
     }
     const text = await store.engine.export(format, json);
     const file = `${name}.${format}`;
-    download(text, file, MIME[format]);
+    if ((await deliver(text, file, MIME[format])) == null) return;
     store.toast(t('file.exported', { name: file }));
   } catch (e) {
     const code = e instanceof Error ? e.message : '';
@@ -116,21 +148,38 @@ export function exportPng() {
   ctx.fillStyle = '#3a3d42';
   ctx.fill('evenodd');
   const name = `${baseName(p.name)}.png`;
-  c.toBlob((blob) => {
+  c.toBlob(async (blob) => {
     if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const data = new Uint8Array(await blob.arrayBuffer());
+    if ((await deliver(data, name, 'image/png')) == null) return;
     store.toast(t('file.exportedPng', { name, dpi, w: c.width, h: c.height }));
   }, 'image/png');
 }
 
+/** Ouvre un fichier choisi dans l'application de bureau (projet, SVG, DXF). */
+export async function openNativeFile(opened: Opened | null) {
+  if (!opened) return;
+  if (/\.dxf$/i.test(opened.name)) await store.importOutlineText(opened.text, opened.name);
+  else {
+    await store.openText(opened.text, opened.name);
+    store.filePath = /\.json$/i.test(opened.name) ? opened.path : null;
+  }
+}
+
+/** Fichier récent (application de bureau). */
+export async function openRecent(path: string) {
+  try {
+    await openNativeFile(await openPath(path));
+  } catch (e) {
+    store.toast(String(e));
+  }
+}
+
 export function pickFile() {
+  if (isDesktop) {
+    void openNative().then(openNativeFile, (e) => store.toast(String(e)));
+    return;
+  }
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json,.svg,.dxf,application/json,image/svg+xml';

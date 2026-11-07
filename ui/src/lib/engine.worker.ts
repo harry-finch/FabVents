@@ -1,7 +1,7 @@
 // Web Worker du moteur : charge le WebAssembly de `fabvents-wasm` et répond
 // aux demandes du fil principal. Le calcul ne bloque jamais l'interface.
 
-import init, { Engine, read_project, example_project, default_project, engine_version, import_outline, fan_template, import_shape, shape_preview } from '../wasm/fabvents.js';
+import init, { Engine, read_project, example_project, default_project, engine_version, import_outline, fan_template, import_shape, shape_preview, solve_open_ratio, script_example } from '../wasm/fabvents.js';
 
 type Request =
   | { kind: 'compute'; id: number; project: string }
@@ -11,7 +11,8 @@ type Request =
   | { kind: 'import'; id: number; text: string }
   | { kind: 'template'; id: number; size: number }
   | { kind: 'import-shape'; id: number; text: string }
-  | { kind: 'preview'; id: number; shape: string };
+  | { kind: 'preview'; id: number; shape: string }
+  | { kind: 'solve'; id: number; project: string; target: number; param: string };
 
 let engine: Engine | null = null;
 
@@ -20,7 +21,7 @@ const post = (msg: unknown, transfer: Transferable[] = []) => (self as unknown a
 
 const ready = init().then(() => {
   engine = new Engine();
-  post({ kind: 'ready', version: engine_version(), example: example_project(), blank: default_project() });
+  post({ kind: 'ready', version: engine_version(), example: example_project(), blank: default_project(), script: script_example() });
 });
 ready.catch((e) => post({ kind: 'failed', error: String(e) }));
 
@@ -73,6 +74,8 @@ onmessage = async (ev: MessageEvent<Request>) => {
       post({ kind: 'result', id: req.id, ok: true, value: fan_template(req.size) });
     } else if (req.kind === 'import-shape') {
       post({ kind: 'result', id: req.id, ok: true, value: import_shape(req.text) });
+    } else if (req.kind === 'solve') {
+      post({ kind: 'result', id: req.id, ok: true, value: solve_open_ratio(req.project, req.target, req.param) });
     } else if (req.kind === 'preview') {
       post({ kind: 'result', id: req.id, ok: true, value: shape_preview(req.shape) });
     }

@@ -77,19 +77,21 @@ Acceptation : chaque cas de la fiche FreeCAD donne des solides valides, au volum
 
 Acceptation : nervures de Voronoï exactes (mesurées au micron), densité suivant le canal Espacement, rubans sans chevauchement, STEP valides dans FreeCAD.
 
-## v0.6 — Atelier de formes et morphing (jalon 6) · *à tester* (livrée le 06/11/2026)
+## v0.6 — Atelier de formes et morphing (jalon 6) · *validée*
 
 - Éditeur de formes : plume, Bézier, primitives cotées, sélection directe, congés non destructifs, import SVG / DXF, symétrie miroir et radiale (2 à 12), calques avec rôles booléens (union, soustraction), réponse au gradient par calque, point de pivot.
 - Canal **Forme** : morphing vers une primitive cible ; morphing personnalisé départ ↔ cible.
 
 Acceptation : aires exactes des calques combinés (union, soustraction, symétries, réponse, Bézier), morphing exact aux deux bouts, STEP valides dans FreeCAD, mesure des nervures sous 100 ms sur 1 400 formes dessinées.
 
-## v0.7 — Bureau et automatisation (jalon 7)
+## v0.7 — Bureau et automatisation (jalon 7) · *à tester* (livrée le 07/11/2026)
 
 - Application **Tauri** (macOS, Windows, Linux) : fenêtres natives d'ouverture / d'enregistrement, fichiers récents.
 - Bibliothèque locale de préréglages (import / export JSON, adaptation aux proportions de la plaque).
 - **CLI** et **serveur MCP** (stdio) : générer, exporter, solveur de taux d'ouverture cible (dichotomie), aperçu PNG pour l'agent.
 - Dispositions scriptées (« IA sur mesure ») : script `rhai` en bac à sable, curseurs déclarés par le script.
+
+Acceptation : solveur dans la tolérance ou meilleur réglage signalé, session MCP complète sur stdio, script et curseurs dans l'interface, application de bureau construite et lancée.
 
 ## v1.0 — Publication
 

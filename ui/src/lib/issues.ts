@@ -25,6 +25,6 @@ export function issueText(i: Issue): string {
   const value =
     i.value == null ? '' : LENGTH_CODES.has(i.code) ? fmtLen(i.value, store.units, 2) : numTrim(i.value, 2);
   const key = `issues.${i.code}` as Key;
-  const text = t(key, { field: fieldLabel(i.field), value, count: i.count ?? '' });
+  const text = t(key, { field: fieldLabel(i.field), value, count: i.count ?? '', detail: i.detail ?? '' });
   return text === key ? i.code : text;
 }

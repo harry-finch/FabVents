@@ -17,6 +17,8 @@ export class EngineClient {
   #pending = new Map<number, Pending>();
 
   onReady: (version: string, example: string, blank: string) => void = () => {};
+  /** Script de départ d'une disposition scriptée (fourni par le moteur). */
+  scriptExample = '';
   onFailed: (error: string) => void = () => {};
   onFrame: (frame: FrameData) => void = () => {};
   onFrameError: (code: string) => void = () => {};
@@ -30,6 +32,7 @@ export class EngineClient {
   #receive(msg: any) {
     switch (msg.kind) {
       case 'ready':
+        this.scriptExample = msg.script ?? '';
         this.onReady(msg.version, msg.example, msg.blank);
         break;
       case 'failed':
@@ -90,6 +93,11 @@ export class EngineClient {
   /** Forme dessinée depuis un SVG ou un DXF (JSON `CustomShape`). */
   importShape(text: string): Promise<string> {
     return this.#call({ kind: 'import-shape', text });
+  }
+
+  /** Solveur de taux d'ouverture (JSON `{ project, solution }`). */
+  solve(project: string, target: number, param: 'size' | 'spacing'): Promise<string> {
+    return this.#call({ kind: 'solve', project, target, param });
   }
 
   /** Aperçu de l'atelier de formes (JSON `ShapePreview`). */

@@ -38,6 +38,7 @@ import {
   shapesHoles,
 } from './types';
 import type { UnitSystem } from './format';
+import { fmtLen, pct } from './format';
 
 const PROJECT_KEY = 'fabvents.project.v1';
 const PREFS_KEY = 'fabvents.prefs.v1';
@@ -156,6 +157,10 @@ class Store {
   help = $state(false);
   /** Atelier de formes ouvert : sur la forme (`kind`) ou sur la cible du morphing. */
   workshop = $state<'kind' | 'morph' | null>(null);
+  /** Fichier du projet ouvert (application de bureau), pour l'enregistrer sur place. */
+  filePath = $state<string | null>(null);
+  /** Bibliothèque de préréglages ouverte. */
+  presetsOpen = $state(false);
   toasts = $state<{ id: number; text: string }[]>([]);
   #toastSeq = 0;
 
@@ -276,6 +281,7 @@ class Store {
   // ---- Projet : nouveau, ouvrir, enregistrer
 
   newProject(example = false) {
+    this.filePath = null;
     if (!this.project) return;
     this.#push(this.#snapshot());
     this.#replace(example ? this.#example : this.#blank);
@@ -574,6 +580,56 @@ class Store {
     }
   }
 
+  /** Préréglage appliqué à la plaque en cours : le motif est mis à l'échelle
+   *  de ses proportions (pas, tailles, contrôleurs, trous de fixation) ; la
+   *  plaque garde son contour, ses dimensions et son épaisseur. Une étape
+   *  d'annulation. */
+  applyPreset(preset: Project, name: string) {
+    if (!this.project) return;
+    const plate = $state.snapshot(this.p.plate);
+    const keepName = this.p.name;
+    const source = $state.snapshot(preset) as Project;
+    const was = this.scalePattern;
+    this.begin();
+    try {
+      this.edit((p) => {
+        Object.assign(p, source);
+        p.name = keepName;
+      });
+      this.scalePattern = true;
+      this.resizePlate(plate.width, plate.height);
+      this.edit((p) => {
+        p.plate.outline = plate.outline;
+        p.plate.custom = plate.custom;
+        p.plate.corner_radius = plate.corner_radius;
+        p.plate.thickness = plate.thickness;
+      });
+    } finally {
+      this.scalePattern = was;
+      this.end();
+    }
+    this.select(null);
+    this.fitSeq++;
+    this.toast(t('presets.applied', { name }));
+  }
+
+  /** Solveur : règle la taille ou l'espacement de base pour viser `target`
+   *  % d'ouverture (une étape d'annulation), et dit ce qui est obtenu. */
+  async solveOpenRatio(target: number, param: 'size' | 'spacing') {
+    if (!this.project) return;
+    try {
+      const r = JSON.parse(await this.engine.solve(JSON.stringify(this.project), target, param));
+      this.#push(this.#snapshot());
+      this.#replace(JSON.stringify(r.project));
+      const s = r.solution as { value: number; open_ratio: number; reached: boolean };
+      const value = fmtLen(s.value, this.units, 2);
+      this.toast(t(s.reached ? 'solve.reached' : 'solve.closest', { ratio: pct(s.open_ratio, 1), value, target: pct(target, 1) }));
+    } catch (e) {
+      const code = e instanceof Error ? e.message : '';
+      this.toast(t(`errors.${code}` as never));
+    }
+  }
+
   /** Contour importé (SVG, DXF) : devient le contour de la plaque, ses
    *  contours intérieurs des découpes. */
   async importOutline(file: File) {
@@ -640,7 +696,7 @@ class Store {
   setLayoutMode(mode: LayoutMode) {
     const cur = this.p.layout;
     if (cur.mode === mode) return;
-    const s = cur.mode === 'grid' ? cur.pitch_x : cur.mode === 'cross_hatch' ? cur.step : cur.spacing;
+    const s = cur.mode === 'grid' ? cur.pitch_x : cur.mode === 'cross_hatch' ? cur.step : cur.mode === 'script' ? 8 : cur.spacing;
     const off = 'offset_x' in cur ? { offset_x: cur.offset_x, offset_y: cur.offset_y } : { offset_x: 0, offset_y: 0 };
     const next: Record<LayoutMode, Layout> = {
       grid: { mode: 'grid', pattern: 'hexagonal', pitch_x: s, pitch_y: s, angle: 0, row_twist: 0, col_twist: 0, ...off },
@@ -652,6 +708,7 @@ class Store {
       path: { mode: 'path', paths: [], spacing: s, rows: 1, row_gap: s, orient: true },
       voronoi: { mode: 'voronoi', spacing: s, relax: 3, seed: 1, rib: 1.5, fillet: 1 },
       flow: { mode: 'flow', spacing: s, angle: 0, width: Math.max(1, Math.round(s * 4) / 10), ends: 'round' },
+      script: { mode: 'script', source: this.engine.scriptExample, params: {}, seed: 1 },
     };
     this.edit((p) => {
       p.layout = next[mode];
@@ -688,7 +745,8 @@ class Store {
             const inf = c[ch];
             if (!inf) continue;
             if (c.geometry.type !== 'image') inf.reach = r(inf.reach);
-            if (ch !== 'angle') inf.target = r(inf.target);
+            // Cibles en mm seulement (pas l'angle, pas la part de morphing).
+            if (ch === 'size' || ch === 'spacing') inf.target = r(inf.target);
           }
         }
       }

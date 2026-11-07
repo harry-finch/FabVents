@@ -38,6 +38,8 @@ pub struct Seeds {
     pub seeds: Vec<Seed>,
     /// Cellules de Voronoï (polygones convexes) ou lignes fluides (polylignes).
     pub shapes: Vec<Vec<Vec2>>,
+    /// Curseurs déclarés par une disposition scriptée.
+    pub sliders: Vec<crate::script::Slider>,
 }
 
 pub fn seeds(layout: &Layout, plate: &Plate, spacing: &ChannelField) -> Result<Vec<Seed>, Issue> {
@@ -57,6 +59,14 @@ pub fn layout_seeds(
     let raw = match layout {
         Layout::Voronoi(v) => return voronoi(v, plate, spacing),
         Layout::Flow(f) => return flow(f, plate, features, spacing, field),
+        Layout::Script(s) => {
+            let r = crate::script::run(s, plate)?;
+            return Ok(Seeds {
+                seeds: inside_extent(r.seeds, plate),
+                shapes: Vec::new(),
+                sliders: r.sliders,
+            });
+        }
         Layout::CrossHatch(c) => cross_hatch(c, plate)?,
         Layout::Random(r) => random(r, plate, spacing)?,
         Layout::Spiral(s) => spiral(s, plate, spacing)?,
@@ -66,13 +76,13 @@ pub fn layout_seeds(
         Layout::Grid(g) => {
             return Ok(Seeds {
                 seeds: grid(g, plate)?,
-                shapes: Vec::new(),
+                ..Seeds::default()
             })
         }
     };
     Ok(Seeds {
         seeds: inside_extent(raw, plate),
-        shapes: Vec::new(),
+        ..Seeds::default()
     })
 }
 

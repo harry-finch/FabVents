@@ -1,8 +1,9 @@
 <script lang="ts">
   // Panneau droit : l'élément sélectionné (contrôleur ou tracé de chemin),
   // ou le canal affiché ; puis les mesures du motif et les messages du moteur.
-  import { Copy, Trash2, TriangleAlert, CircleX, Info, Dices, Equal, Circle, Hexagon, Ellipse, Frame, Plus, Square } from '@lucide/svelte';
+  import { Copy, Trash2, TriangleAlert, CircleX, Info, Dices, Equal, Circle, Hexagon, Ellipse, Frame, Plus, Square, Target } from '@lucide/svelte';
   import Section from './Section.svelte';
+  import Popover from './Popover.svelte';
   import NumField from './NumField.svelte';
   import Field from './Field.svelte';
   import Segmented from './Segmented.svelte';
@@ -16,6 +17,9 @@
   import { baseAngle, baseSize, baseSizeField, baseSpacing, type Channel, type Controller, type CtrlGeometry, type CullMode, type Feature, type Influence, type Side } from '../lib/types';
 
   const key = $derived(store.selection);
+  let solveTarget = $state(0.4);
+  let solveParam = $state<'size' | 'spacing'>('size');
+  let solving = $state(false);
   const geom = $derived(store.selectedGeometry);
   const ctrl = $derived(store.selectedController);
   const report = $derived(store.frame?.report ?? null);
@@ -86,7 +90,7 @@
       } else if (ch === 'angle') {
         if (l.mode === 'flow') l.angle = v;
         else q.shape.rotation = v;
-      } else if (l.mode !== 'grid' && l.mode !== 'cross_hatch') l.spacing = v;
+      } else if (l.mode !== 'grid' && l.mode !== 'cross_hatch' && l.mode !== 'script') l.spacing = v;
     }, `base.${ch}`);
   }
 
@@ -517,6 +521,38 @@
           <dd class="tabular">{num(report.stats.removed_cull, 0)}</dd>
         {/if}
       </dl>
+      <Popover label={t('solve.title')} width={280}>
+        {#snippet trigger({ open, toggle })}
+          <button class="btn solve" class:open type="button" use:tip={t('solve.hint')} onclick={toggle}><Target size={14} /> {t('solve.open')}</button>
+        {/snippet}
+        {#snippet content({ close })}
+          <div class="solver">
+            <NumField label={t('solve.target')} kind="percent" decimals={1} min={0.001} max={0.99} value={solveTarget} onchange={(v) => (solveTarget = v)} />
+            <p class="sub">{t('solve.vary')}</p>
+            <Segmented
+              label={t('solve.vary')}
+              value={solveParam}
+              options={[
+                { id: 'size', label: t('solve.size'), hint: t('solve.sizeHint') },
+                { id: 'spacing', label: t('solve.spacing'), hint: t('solve.spacingHint') },
+              ]}
+              onchange={(v: 'size' | 'spacing') => (solveParam = v)}
+            />
+            <p class="muted">{t('solve.note')}</p>
+            <button
+              class="btn primary"
+              type="button"
+              disabled={solving}
+              onclick={async () => {
+                solving = true;
+                await store.solveOpenRatio(solveTarget * 100, solveParam);
+                solving = false;
+                close();
+              }}>{t('solve.run')}</button
+            >
+          </div>
+        {/snippet}
+      </Popover>
     {:else}
       <p class="muted">{t('status.loading')}</p>
     {/if}
@@ -678,6 +714,22 @@
 
   dd.warn {
     color: var(--warning);
+  }
+
+  .solve {
+    align-self: flex-start;
+    margin-top: var(--s1);
+  }
+
+  .solve.open {
+    border-color: var(--accent);
+  }
+
+  .solver {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    padding: var(--s2);
   }
 
   .issues {

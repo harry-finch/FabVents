@@ -141,6 +141,23 @@ export interface FlowLayout {
   ends: FlowEnds;
 }
 
+/** Disposition scriptée : script Rhai, valeurs des curseurs qu'il déclare. */
+export interface ScriptLayout {
+  mode: 'script';
+  source: string;
+  params?: Record<string, number>;
+  seed: number;
+}
+
+/** Curseur déclaré par un script. */
+export interface ScriptSlider {
+  name: string;
+  min: number;
+  max: number;
+  default: number;
+  value: number;
+}
+
 export type Layout =
   | GridLayout
   | RandomLayout
@@ -150,9 +167,10 @@ export type Layout =
   | CrossHatchLayout
   | PathLayout
   | VoronoiLayout
-  | FlowLayout;
+  | FlowLayout
+  | ScriptLayout;
 export type LayoutMode = Layout['mode'];
-export const LAYOUT_MODES: LayoutMode[] = ['grid', 'random', 'spiral', 'concentric', 'fibonacci', 'cross_hatch', 'path', 'voronoi', 'flow'];
+export const LAYOUT_MODES: LayoutMode[] = ['grid', 'random', 'spiral', 'concentric', 'fibonacci', 'cross_hatch', 'path', 'voronoi', 'flow', 'script'];
 
 /** La disposition donne-t-elle la forme des perforations (cellules, rubans) ? */
 export const shapesHoles = (l: Layout) => l.mode === 'voronoi' || l.mode === 'flow';
@@ -175,7 +193,7 @@ export function baseAngle(p: Project): number {
 
 /** Valeur de base du canal Espacement (null : la disposition ne le suit pas). */
 export function baseSpacing(l: Layout): number | null {
-  return l.mode === 'grid' || l.mode === 'cross_hatch' ? null : l.spacing;
+  return l.mode === 'grid' || l.mode === 'cross_hatch' || l.mode === 'script' ? null : l.spacing;
 }
 
 export type ShapeKind =
@@ -329,6 +347,8 @@ export interface Issue {
   field?: string;
   value?: number;
   count?: number;
+  /** Précision libre (erreur d'un script). */
+  detail?: string;
 }
 
 export interface Metrics {
@@ -360,6 +380,8 @@ export interface Report {
   stats: Stats;
   issues: Issue[];
   stages: boolean[];
+  /** Curseurs d'une disposition scriptée. */
+  sliders?: ScriptSlider[];
 }
 
 /** Géométrie calculée par le moteur, prête à dessiner. */
