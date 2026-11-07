@@ -19,3 +19,6 @@
 .tmp/
 .DS_Store
 *.log
+
+# Caches Python
+__pycache__/

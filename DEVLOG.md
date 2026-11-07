@@ -143,3 +143,7 @@ v0.6 validée par l'utilisateur.
 - Cible du canal Forme mise à l'échelle comme une longueur au redimensionnement (100 % → 141 %) : seules les cibles Taille et Espacement suivent l'échelle.
 - Moteur WebAssembly à 3,2 Mo avec Rhai : fermetures et entiers 32 bits retirés, 2,8 Mo.
 - CLI Tauri 2.12 incompatible avec Rust 1.88 : 2.11.5 épinglée.
+
+## 2026-11-07 — Ménage du dépôt
+
+Builds retirés (`target/` : 6,5 Go, `ui/dist`, schémas Tauri générés), cache Python versionné par erreur, icônes Windows Store inutilisées, skill `github-upstream-workflow` (propre au fork de FabCAM) ; `.dmg` de la v0.7 gardé dans `dist-desktop/` (hors Git). Le logo n'est plus marqué provisoire ; la CLI s'installe par `cargo install --path crates/fabvents-cli`. Corrigé : `cargo test --workspace` échouait sur un dépôt neuf (l'application de bureau exigeait l'interface construite) ; le script de build pose une page d'attente.

@@ -28,7 +28,7 @@ cd ui && npm run build && npm run preview
 
 ### Application de bureau
 
-Même interface dans une fenêtre native (Tauri), avec les fenêtres d'ouverture et d'enregistrement du système, l'enregistrement sur place (`⌘S`) et les fichiers récents. Construire l'application (`.app` et `.dmg` sur macOS) :
+Même interface dans une fenêtre native (Tauri), avec les fenêtres d'ouverture et d'enregistrement du système, l'enregistrement sur place (`⌘S`) et les fichiers récents. Construire l'application (`.app` et `.dmg` sur macOS, dans `target/release/bundle/`) :
 
 ```bash
 cargo install tauri-cli --version 2.11.5 --locked
@@ -50,10 +50,10 @@ Raccourcis : `?` dans l'application.
 
 ## Ligne de commande et agents IA
 
-Le binaire `fabvents` donne le moteur sans interface :
+Le binaire `fabvents` donne le moteur sans interface ; l'installer (dans `~/.cargo/bin`) :
 
 ```bash
-cargo build --release -p fabvents-cli
+cargo install --path crates/fabvents-cli
 ```
 
 | Commande | Rôle |
@@ -67,7 +67,7 @@ cargo build --release -p fabvents-cli
 Le serveur MCP expose six outils à un agent (Claude Code, Cursor…) : guide du format, nouveau projet, calcul, solveur de taux d'ouverture, aperçu PNG, export. Pour l'ajouter à Claude Code :
 
 ```bash
-claude mcp add fabvents -- /chemin/vers/FabVents/target/release/fabvents mcp
+claude mcp add fabvents -- fabvents mcp
 ```
 
 ## Développer
