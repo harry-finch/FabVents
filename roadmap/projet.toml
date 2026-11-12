@@ -18,3 +18,36 @@ titre = "Version web"
 url = "http://localhost:5173"
 commande = "npm run dev"
 dossier = "ui"
+
+# Jalons, dans l'ordre.
+[[jalons]]
+id = "v0.1"
+titre = "Tranche verticale"
+
+[[jalons]]
+id = "v0.2"
+titre = "Dispositions et contrôleurs"
+
+[[jalons]]
+id = "v0.3"
+titre = "Contours et découpe"
+
+[[jalons]]
+id = "v0.4"
+titre = "Export STEP"
+
+[[jalons]]
+id = "v0.5"
+titre = "Voronoï et lignes fluides"
+
+[[jalons]]
+id = "v0.6"
+titre = "Atelier de formes et morphing"
+
+[[jalons]]
+id = "v0.7"
+titre = "Bureau et automatisation"
+
+[[jalons]]
+id = "v1.0"
+titre = "Publication"

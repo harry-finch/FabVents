@@ -1,4 +1,4 @@
-# Feuille de route
+<!-- Généré par FabBoard depuis roadmap/ : ne pas modifier à la main. -->
 
 **But de la v1.0** : une application de bureau (et une version web sans installation) qui reprend les fonctions utiles de SolidVents pour les makers et les fablabs : motifs de perforation paramétriques pilotés par des contrôleurs posés sur le canevas, contrôles de fabrication, exports laser / CNC (SVG, DXF) et CAO (STEP). Sans compte ni abonnement : les fonctions « Pro » de SolidVents sont incluses.
 
@@ -12,93 +12,51 @@
 
 La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md) (chaque fonction y a son identifiant et son jalon).
 
----
+**Avancement : 6 livrés sur 9** (67 %)
 
-## v0.1 — Tranche verticale (jalon 1) · *validée* (23/10/2026)
+## Restant à faire
 
-**But** : dessiner une grille de ventilation à trous de taille variable et l'envoyer à la découpeuse laser, de bout en bout.
+1. **[R-007 v0.7 — Bureau et automatisation (jalon 7)](roadmap/items/R-007-v0-7-bureau-et-automatisation-jalon-7.md)** · À tester · jalon v0.7
+   Application de bureau Tauri, bibliothèque de préréglages, CLI et serveur MCP, solveur de taux d'ouverture, dispositions scriptées.
+2. **[R-008 v1.0 — Installeurs signés, documentation et tests de bout en bout](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · Idée · jalon v1.0
+   Installeurs signés, documentation utilisateur en français et en anglais, tests de bout en bout de l'interface.
+3. **[R-009 v1.0 — Pièces d'exemple validées à l'atelier](roadmap/items/R-009-v1-0-pieces-d-exemple-validees-a-l-atelier.md)** · Idée · jalon v1.0
+   Pièces d'exemple fabriquées et validées : laser (contreplaqué 3 mm, acrylique), CNC (alu, MDF), impression 3D.
 
-Inclus :
+## Actions à faire
 
-- Workspace Rust (`fabvents-core`, `fabvents-wasm`), interface Svelte, moteur en WebAssembly dans un Web Worker (ADR-0002).
-- Plaque rectangulaire (coins arrondis) ou ronde, épaisseur, marge de bord.
-- Disposition **Grille** : carrée, hexagonale (60°), quinconce ; pas X/Y, angle, décalage, rotation par rangée / colonne.
-- Formes : cercle, rectangle (coins arrondis), polygone régulier, étoile, fente ; taille de référence et rotation.
-- Contrôleurs **Point** et **Ligne** sur les canaux **Taille** et **Angle** : portée, valeur cible, bord net ; un contrôleur peut agir sur plusieurs canaux (synchronisation, ADR-0004).
-- Bords : par le centre, trous entiers.
-- Mesures : nombre de trous, taux d'ouverture, tailles min / max, nervure minimale, chevauchements ; avertissements de fabrication (nervure sous le minimum, trous supprimés car trop petits).
-- Canevas : zoom à la molette centré sur le curseur, déplacement (Espace + glisser, bouton du milieu, outil Main), cadrage, poignées déplaçables, création de points et de lignes, suppression, annuler / rétablir.
-- Exports : **SVG** (projet embarqué, rouvrable), **DXF** R12 en mm (calques `CUT_INNER` / `CUT_OUTER`), projet `.fabvents.json`. Ouverture d'un projet ou d'un SVG FabVents (glisser-déposer).
-- Reprise automatique du dernier projet ; FR / EN ; mm / pouces ; thème.
+- [ ] [A-001](roadmap/actions/A-001-tester-la-v0-7-application-de-bureau-et-serveur.md) Tester la v0.7 : application de bureau et serveur MCP (tester, R-007)
+- [ ] [A-002](roadmap/actions/A-002-importer-un-step-de-fabvents-dans-fusion-360-et.md) Importer un STEP de FabVents dans Fusion 360 et PrusaSlicer (tester, R-004)
+- [ ] [A-003](roadmap/actions/A-003-decider-du-sort-de-wrap-et-de-comptes-nuage.md) Décider du sort de Wrap et de Comptes / nuage / place de marché (decider, R-010)
 
-Critères d'acceptation :
+## Livré
 
-- `cargo test --workspace`, `cargo clippy --workspace --all-targets` et `npm run check` sans erreur.
-- Une grille 200 × 150 mm de ~2 000 trous se recalcule pendant le déplacement d'un contrôleur sans saccade visible.
-- Le DXF s'ouvre à la bonne échelle (mm) dans LightBurn, Inkscape et FreeCAD ; le SVG exporté puis rouvert redonne exactement le projet.
+### v0.1 : Tranche verticale
 
-## v0.2 — Dispositions et contrôleurs (jalon 2) · *validée*
+- [R-001 v0.1 — Tranche verticale (jalon 1)](roadmap/items/R-001-v0-1-tranche-verticale-jalon-1.md) · livrée le 2026-10-23
+  Dessiner une grille de ventilation à trous de taille variable et l'envoyer à la découpeuse laser, de bout en bout.
 
-- Dispositions : **Aléatoire** (Poisson-disc à densité variable, graine), **Spirale**, **Concentrique**, **Fibonacci** (phyllotaxie), **Hachures croisées**, **Chemin** (répétition le long d'un tracé).
-- Orientation selon le chemin (concentrique, spirale, chemin).
-- Canal **Espacement** (densité locale des dispositions aléatoire, Fibonacci, chemin).
-- Contrôleur **Courbe / polyligne** ouverte ou fermée, congés aux nœuds, conversion en géométrie exacte (cercle, ellipse, polygone régulier), saisie aux cotes.
-- Contrôleur **Image** (halftone) sur n'importe quel canal : inverser, contraste.
-- Options : côté unique et extension infinie, remplir l'intérieur d'une courbe fermée, disparition aléatoire (*cull*) avec graine, angle symétrique et par paliers, unifier portée / valeur d'un canal.
-- Outil **Règle** ; redimensionnement proportionnel de tout le motif quand la plaque change de taille.
+### v0.2 : Dispositions et contrôleurs
 
-Acceptation : chaque disposition et chaque option a un test moteur (déterminisme compris : même graine, même résultat).
+- [R-002 v0.2 — Dispositions et contrôleurs (jalon 2)](roadmap/items/R-002-v0-2-dispositions-et-controleurs-jalon-2.md) · livrée le 2026-10-23
+  Six nouvelles dispositions, contrôleurs courbe et image, canal Espacement, options de remplissage et de disparition, outil Règle.
 
-## v0.3 — Contours et découpe (jalon 3) · *validée*
+### v0.3 : Contours et découpe
 
-- Contours : ellipse, contour importé (SVG, DXF) ou dessiné.
-- **Découpe au contour** (booléens 2D, `i_overlay`) ; fusion des trous qui se chevauchent ; taux d'ouverture exact.
-- *Ajout FabVents* : **trous de fixation et zones réservées** (aucune perforation autour des vis, d'un logo, d'un passage de câble).
-- *Ajout FabVents* : **gabarits** de grilles de ventilateur 40 / 60 / 80 / 92 / 120 / 140 mm avec leurs trous de fixation.
-- Export **PNG** haute résolution, fond transparent.
-- *Ajout* : **zone perforée** (disque ou rectangle) distincte du contour de la plaque.
+- [R-003 v0.3 — Contours et découpe (jalon 3)](roadmap/items/R-003-v0-3-contours-et-decoupe-jalon-3.md) · livrée le 2026-10-23
+  Contours ellipse, importés ou dessinés, découpe au contour, trous de fixation et zones réservées, gabarits de ventilateurs, export PNG, zone perforée.
 
-Acceptation : découpe, fusion et îlots testés sur des cas à aire connue ; contours SVG et DXF (arcs, transformations, unités) relus par le moteur.
+### v0.4 : Export STEP
 
-## v0.4 — Export STEP (jalon 4) · *validée*
+- [R-004 v0.4 — Export STEP (jalon 4)](roadmap/items/R-004-v0-4-export-step-jalon-4.md) · livrée le 2026-11-06
+  Plaque extrudée en B-Rep explicite, découpage en dalles, angle de dépouille, arcs exacts dans le DXF, fiches de validation.
 
-- Plaque extrudée en **B-Rep explicite** (`MANIFOLD_SOLID_BREP`) : trous ronds en vraies faces cylindriques, polygones en faces planes. L'`EXTRUDED_AREA_SOLID` suggéré dans la recherche est écarté (mal lu par les importeurs AP214, voir `docs/FEATURES.md`).
-- **Découpage en dalles** (STP Split) N × M : archive ZIP ou assemblage STEP unique. Les coupes passent entre les perforations quand c'est possible, sinon à travers (encoches exactes).
-- **Angle de dépouille** : cônes analytiques, validation avant export (trou qui se referme, paroi percée) surlignée sur le canevas.
-- DXF : arcs exacts (*bulge*) pour les congés ; simplification Ramer-Douglas-Peucker. *Fait au-delà* : arcs retrouvés sur toutes les découpes (mode Découper, fusions), pour tous les exports.
-- Fiches de validation : import FreeCAD ([docs/validation/step-freecad.md](docs/validation/step-freecad.md)) ; Fusion 360 et PrusaSlicer à faire par l'utilisateur.
+### v0.5 : Voronoï et lignes fluides
 
-Acceptation : chaque cas de la fiche FreeCAD donne des solides valides, au volume calculé.
+- [R-005 v0.5 — Voronoï et lignes fluides (jalon 5)](roadmap/items/R-005-v0-5-voronoi-et-lignes-fluides-jalon-5.md) · livrée le 2026-11-06
+  Disposition Voronoï à nervures d'épaisseur variable et disposition en lignes fluides (rubans d'épaisseur variable).
 
-## v0.5 — Voronoï et lignes fluides (jalon 5) · *validée*
+### v0.6 : Atelier de formes et morphing
 
-- **Voronoï** : relaxation de Lloyd, nervures d'épaisseur variable (canal Taille), congés aux sommets, densité par le canal Espacement.
-- **Lignes fluides** : rubans d'épaisseur variable, canaux remappés (épaisseur, espacement, courbure, direction), extrémités plates ou rondes, nettoyage des auto-intersections.
-
-Acceptation : nervures de Voronoï exactes (mesurées au micron), densité suivant le canal Espacement, rubans sans chevauchement, STEP valides dans FreeCAD.
-
-## v0.6 — Atelier de formes et morphing (jalon 6) · *validée*
-
-- Éditeur de formes : plume, Bézier, primitives cotées, sélection directe, congés non destructifs, import SVG / DXF, symétrie miroir et radiale (2 à 12), calques avec rôles booléens (union, soustraction), réponse au gradient par calque, point de pivot.
-- Canal **Forme** : morphing vers une primitive cible ; morphing personnalisé départ ↔ cible.
-
-Acceptation : aires exactes des calques combinés (union, soustraction, symétries, réponse, Bézier), morphing exact aux deux bouts, STEP valides dans FreeCAD, mesure des nervures sous 100 ms sur 1 400 formes dessinées.
-
-## v0.7 — Bureau et automatisation (jalon 7) · *à tester* (livrée le 07/11/2026)
-
-- Application **Tauri** (macOS, Windows, Linux) : fenêtres natives d'ouverture / d'enregistrement, fichiers récents.
-- Bibliothèque locale de préréglages (import / export JSON, adaptation aux proportions de la plaque).
-- **CLI** et **serveur MCP** (stdio) : générer, exporter, solveur de taux d'ouverture cible (dichotomie), aperçu PNG pour l'agent.
-- Dispositions scriptées (« IA sur mesure ») : script `rhai` en bac à sable, curseurs déclarés par le script.
-
-Acceptation : solveur dans la tolérance ou meilleur réglage signalé, session MCP complète sur stdio, script et curseurs dans l'interface, application de bureau construite et lancée.
-
-## v1.0 — Publication
-
-- Installeurs signés, documentation utilisateur FR / EN, tests de bout en bout de l'interface.
-- Pièces d'exemple validées à l'atelier : laser (contreplaqué 3 mm, acrylique), CNC (alu, MDF), impression 3D.
-
-## Hors périmètre (à réévaluer après la v1.0)
-
-- **Wrap** (projection d'un motif sur une face 3D courbe d'un STEP importé) : demande un noyau CAO complet (OpenCascade), un dépliage LSCM / ARAP et des booléens 3D.
-- Comptes, nuage, place de marché.
+- [R-006 v0.6 — Atelier de formes et morphing (jalon 6)](roadmap/items/R-006-v0-6-atelier-de-formes-et-morphing-jalon-6.md) · livrée le 2026-11-07
+  Éditeur de formes (plume, Bézier, primitives cotées, symétries, calques) et canal Forme avec morphing.

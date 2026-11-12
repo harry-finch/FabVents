@@ -2,13 +2,14 @@
 
 > Ce fichier est repris dans CLAUDE.md.
 
-FabVents : générateur de motifs de perforation paramétriques (grilles de ventilation, de haut-parleur, panneaux décoratifs) pour makers et fablabs, inspiré de SolidVents. Workspace Rust (`fabvents-core` pur, `fabvents-wasm` pour l'interface) + interface Svelte 5 dans `ui/`, même écosystème que FabSpeed. Lire [README.md](README.md), [STATUS.md](STATUS.md), [ROADMAP.md](ROADMAP.md) et [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) avant de modifier.
+FabVents : générateur de motifs de perforation paramétriques (grilles de ventilation, de haut-parleur, panneaux décoratifs) pour makers et fablabs, inspiré de SolidVents. Workspace Rust (`fabvents-core` pur, `fabvents-wasm` pour l'interface) + interface Svelte 5 dans `ui/`, même écosystème que FabSpeed. Lire [README.md](README.md), [STATUS.md](STATUS.md), la feuille de route ([ROADMAP.md](ROADMAP.md), générée depuis le dossier `roadmap/`) et [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) avant de modifier.
 
 ## Skills à utiliser (`.agents/skills/`)
 
 - `fab-design-system` : toute modification de l'interface ; jetons, composants, mise en page, textes et identité de la famille Fab, avec un kit de démarrage pour une nouvelle application. Ses valeurs chiffrées font foi.
 - `professional-workshop-ui` : les mêmes principes en termes généraux.
-- `project-documentation` : STATUS, DEVLOG, ROADMAP, ADR, FEATURES.
+- `fab-roadmap` : la feuille de route est dans `roadmap/` (un fichier par élément, un par action de l'utilisateur), lue par FabBoard ; `ROADMAP.md` en est la vue générée, ne pas le modifier à la main. Cette skill dit comment spécifier, tenir les statuts, créer une action quand on attend l'utilisateur. L'ancienne feuille de route écrite à la main est conservée dans `docs/ROADMAP-avant-fabboard.md`.
+- `project-documentation` : STATUS, DEVLOG, ADR, FEATURES (la feuille de route relève de `fab-roadmap`).
 
 ## Règles
 
