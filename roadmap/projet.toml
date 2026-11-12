@@ -3,6 +3,7 @@ nom = "FabVents"
 resume = "Motifs de perforation"
 identite = "#b5d93a"
 logo = "branding/fabvents-logo.svg"
+figure = "sieve"                        # provisoire : à remplacer par la plaque perforée
 
 [[test]]
 type = "build"
@@ -10,3 +11,10 @@ motif = "dist-desktop/*.dmg"
 
 [[test]]
 type = "release"
+
+[[test]]
+type = "url"
+titre = "Version web"
+url = "http://localhost:5173"
+commande = "npm run dev"
+dossier = "ui"
