@@ -59,3 +59,10 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 
 - [R-006 v0.6 — Atelier de formes et morphing (jalon 6)](roadmap/items/R-006-v0-6-atelier-de-formes-et-morphing-jalon-6.md) · livrée le 2026-11-07
   Éditeur de formes (plume, Bézier, primitives cotées, symétries, calques) et canal Forme avec morphing.
+
+## Écarté
+
+- [R-010 Wrap — projection d'un motif sur une face 3D courbe](roadmap/items/R-010-wrap-projection-d-un-motif-sur-une-face-3d.md)
+  Projeter un motif sur une face 3D courbe d'un STEP importé. Hors périmètre de la v1.0, à réévaluer après.
+- [R-011 Comptes, nuage, place de marché](roadmap/items/R-011-comptes-nuage-place-de-marche.md)
+  Comptes utilisateur, nuage et place de marché. Hors périmètre de la v1.0, à réévaluer après.
