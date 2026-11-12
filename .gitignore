@@ -22,3 +22,6 @@
 
 # Caches Python
 __pycache__/
+
+branding/illustrations/*.png
+branding/illustrations/*-source.txt

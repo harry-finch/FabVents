@@ -4,7 +4,7 @@ resume = "Motifs de perforation"
 identite = "#b5d93a"
 logo = "branding/fabvents-logo.svg"
 agent = "claude"
-figure = "sieve"                        # provisoire : à remplacer par la plaque perforée
+figure = "fan-grille"
 
 [[test]]
 type = "build"
