@@ -23,7 +23,7 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 3. **[R-009 v1.0 — Pièces d'exemple validées à l'atelier](roadmap/items/R-009-v1-0-pieces-d-exemple-validees-a-l-atelier.md)** · Idée · jalon v1.0
    Pièces d'exemple fabriquées et validées : laser (contreplaqué 3 mm, acrylique), CNC (alu, MDF), impression 3D.
 4. **[R-012 Figure de FabVents dans l'application](roadmap/items/R-012-figure-de-fabvents-dans-l-application.md)** · Idée
-   Poser la figure de la grille de ventilateur (état vide de l'espace de travail, premier lancement, À propos), selon la skill fab-illustration-system. À spécifier.
+   Poser la figure de la plaque perforée (état vide de l'espace de travail, premier lancement, À propos), selon la skill fab-illustration-system. À spécifier.
 
 ## Actions à faire
 
