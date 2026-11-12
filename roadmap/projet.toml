@@ -16,7 +16,7 @@ type = "release"
 [[test]]
 type = "url"
 titre = "Version web"
-url = "http://localhost:5173"
+url = "http://localhost:5174"
 commande = "npm run dev"
 dossier = "ui"
 

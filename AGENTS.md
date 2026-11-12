@@ -26,5 +26,5 @@ FabVents : générateur de motifs de perforation paramétriques (grilles de vent
 
 - Tests : `cargo test --workspace`, `cargo clippy --workspace --all-targets`, `cd ui && npm run check`.
 - Moteur pour l'interface : `cd ui && npm run wasm` (wasm-pack, sortie dans `ui/src/wasm/`, hors Git).
-- Développement : `cd ui && npm run dev` → http://localhost:5173 (relancer `npm run wasm` après une modification du moteur).
+- Développement : `cd ui && npm run dev` → http://localhost:5174 (relancer `npm run wasm` après une modification du moteur).
 - Build : `cd ui && npm run build` (moteur compris), puis `npm run preview`.

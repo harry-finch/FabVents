@@ -35,6 +35,6 @@
 - Application de bureau non signée (macOS : clic droit → Ouvrir au premier lancement) ; CLI Tauri épinglée en 2.11.5 (Rust 1.88).
 - Moteur WebAssembly de 2,8 Mo (880 Ko compressé) depuis l'ajout de Rhai.
 
-## Prochaine action
+## À suivre
 
-Tester la v0.7 (liste dans le message de livraison), dont l'application de bureau et le serveur MCP dans Claude Code, puis préparer la v1.0.
+Actions en attente : A-001 (tester la v0.7 : application de bureau et serveur MCP), A-002 (importer un STEP dans Fusion 360 et PrusaSlicer). Ensuite : la v1.0, voir R-008 et R-009 dans [ROADMAP.md](ROADMAP.md).
