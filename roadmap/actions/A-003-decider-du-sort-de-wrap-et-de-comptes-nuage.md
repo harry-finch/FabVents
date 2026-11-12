@@ -3,7 +3,7 @@ id: A-003
 type: decider
 titre: "Décider du sort de Wrap et de Comptes / nuage / place de marché"
 element: R-010
-statut: a-faire
+statut: annulee
 cree: 2026-11-12
 par: agent
 fait:

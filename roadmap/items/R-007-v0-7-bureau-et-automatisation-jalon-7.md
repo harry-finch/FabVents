@@ -11,24 +11,12 @@ livree:
 
 Livrée pour essai le 07/11/2026, en attente de validation par l'utilisateur. Texte d'origine de l'ancienne feuille de route repris dans « Inclus » et « Critères d'acceptation ».
 
-## But
-
-À préciser.
-
 ## Inclus
 
 - Application **Tauri** (macOS, Windows, Linux) : fenêtres natives d'ouverture / d'enregistrement, fichiers récents.
 - Bibliothèque locale de préréglages (import / export JSON, adaptation aux proportions de la plaque).
 - **CLI** et **serveur MCP** (stdio) : générer, exporter, solveur de taux d'ouverture cible (dichotomie), aperçu PNG pour l'agent.
 - Dispositions scriptées (« IA sur mesure ») : script `rhai` en bac à sable, curseurs déclarés par le script.
-
-## Hors périmètre
-
-À préciser.
-
-## Dépendances
-
-À préciser.
 
 ## Critères d'acceptation
 
