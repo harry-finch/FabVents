@@ -2,10 +2,10 @@
 id: A-004
 type: valider
 titre: "Valider la migration de la feuille de route"
-statut: a-faire
+statut: fait
 cree: 2026-11-12
 par: agent
-fait:
+fait: 2026-11-12
 ---
 
 L'ancienne ROADMAP.md est migrée dans roadmap/ ; elle est conservée dans docs/ROADMAP-avant-fabboard.md. Branche fabboard/migration-roadmap, non poussée ni fusionnée : c'est ta décision.
@@ -21,3 +21,7 @@ Choix faits là où le document était ambigu :
 - R-007 : « But », « Hors périmètre » et « Dépendances » valent « À préciser. », le texte d'origine est sous « Inclus » et « Critères d'acceptation ».
 
 À répondre : ok, ou ce qu'il faut corriger.
+
+## Réponse
+
+Validée par l'utilisateur le 12/11/2026 ; branche fusionnée dans main.

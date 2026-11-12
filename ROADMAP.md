@@ -27,7 +27,6 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 
 - [ ] [A-001](roadmap/actions/A-001-tester-la-v0-7-application-de-bureau-et-serveur.md) Tester la v0.7 : application de bureau et serveur MCP (tester, R-007)
 - [ ] [A-002](roadmap/actions/A-002-importer-un-step-de-fabvents-dans-fusion-360-et.md) Importer un STEP de FabVents dans Fusion 360 et PrusaSlicer (tester, R-004)
-- [ ] [A-004](roadmap/actions/A-004-valider-la-migration-de-la-feuille-de-route.md) Valider la migration de la feuille de route (valider)
 
 ## Livré
 
