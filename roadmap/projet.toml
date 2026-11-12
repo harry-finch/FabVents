@@ -1,0 +1,12 @@
+format = 1
+nom = "FabVents"
+resume = "Motifs de perforation"
+identite = "#b5d93a"
+logo = "branding/fabvents-logo.svg"
+
+[[test]]
+type = "build"
+motif = "dist-desktop/*.dmg"
+
+[[test]]
+type = "release"
