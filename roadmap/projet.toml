@@ -5,6 +5,7 @@ identite = "#b5d93a"
 logo = "branding/fabvents-logo.svg"
 agent = "claude"
 figure = "perforated-plate"
+equerre = "2026-11-12"
 
 [[test]]
 type = "build"
