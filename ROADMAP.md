@@ -16,7 +16,7 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 
 ## Restant à faire
 
-1. **[R-008 v1.0 — Publication : builds et release GitHub](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · En cours · jalon v1.0
+1. **[R-008 v1.0 — Publication : builds et release GitHub](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · À tester · jalon v1.0
    Release GitHub v1.0.0 en brouillon : application de bureau pour macOS (Apple Silicon), Windows et Linux, construite par un workflow sur tag, installeurs non signés.
 2. **[R-009 v1.0 — Pièces d'exemple validées à l'atelier](roadmap/items/R-009-v1-0-pieces-d-exemple-validees-a-l-atelier.md)** · Idée · jalon v1.0
    Pièces d'exemple fabriquées et validées : laser (contreplaqué 3 mm, acrylique), CNC (alu, MDF), impression 3D.
@@ -24,6 +24,13 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
    Documentation utilisateur en français et en anglais, issue du découpage de R-008.
 4. **[R-014 v1.0 — Tests de bout en bout de l'interface](roadmap/items/R-014-v1-0-tests-de-bout-en-bout-de-l-interface.md)** · Idée · jalon v1.0
    Tests de bout en bout de l'interface, issus du découpage de R-008.
+
+## Actions à faire
+
+- [ ] [A-006](roadmap/actions/A-006-installer-et-ouvrir-la-v1-0-0-sur-macos.md) Installer et ouvrir la v1.0.0 sur macOS (tester, R-008)
+- [ ] [A-007](roadmap/actions/A-007-installer-et-ouvrir-la-v1-0-0-sur-windows.md) Installer et ouvrir la v1.0.0 sur Windows (tester, R-008)
+- [ ] [A-008](roadmap/actions/A-008-installer-et-ouvrir-la-v1-0-0-sur-linux.md) Installer et ouvrir la v1.0.0 sur Linux (tester, R-008)
+- [ ] [A-009](roadmap/actions/A-009-relire-les-notes-de-release-v1-0-0-et-lever-le.md) Relire les notes de release v1.0.0 et lever le brouillon (valider, R-008)
 
 ## Livré
 

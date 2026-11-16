@@ -2,7 +2,7 @@
 id: R-008
 titre: "v1.0 — Publication : builds et release GitHub"
 resume: "Release GitHub v1.0.0 en brouillon : application de bureau pour macOS (Apple Silicon), Windows et Linux, construite par un workflow sur tag, installeurs non signés."
-statut: en-cours
+statut: a-tester
 jalon: v1.0
 cree: 2026-11-12
 maj: 2026-11-16

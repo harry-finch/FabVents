@@ -1,6 +1,6 @@
 # État du projet
 
-**Jalon** : **v1.0 — publication** en préparation (R-008) : version 1.0.0, workflow de release sur tag (`.github/workflows/release.yml`), notes dans `RELEASE-NOTES.md`. Le `.dmg` macOS 1.0.0 est construit en local ; les builds Windows et Linux ne sont pas lancés. La v0.7 est livrée pour essai (07/11/2026). v0.1 à v0.6 validées par l'utilisateur. Prochain jalon : v1.0 (publication), voir [ROADMAP.md](ROADMAP.md).
+**Jalon** : **v1.0 — publication** en préparation (R-008) : version 1.0.0, workflow de release sur tag (`.github/workflows/release.yml`), notes dans `RELEASE-NOTES.md`. Release `v1.0.0` en brouillon sur GitHub : installeurs Windows (`.exe`, `.msi`) et Linux (`.AppImage`, `.deb`) construits par le workflow ; le `.dmg` macOS est construit en local et joint à la main, le runner macOS du workflow étant refusé (« macos-14-arm64-us-default is not supported »). Non vérifié : lancement des installeurs. La v0.7 est livrée pour essai (07/11/2026). v0.1 à v0.6 validées par l'utilisateur. Prochain jalon : v1.0 (publication), voir [ROADMAP.md](ROADMAP.md).
 
 | Élément | État |
 | --- | --- |
