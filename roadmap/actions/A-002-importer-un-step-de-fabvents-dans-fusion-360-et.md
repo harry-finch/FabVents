@@ -3,10 +3,10 @@ id: A-002
 type: tester
 titre: "Importer un STEP de FabVents dans Fusion 360 et PrusaSlicer"
 element: R-004
-statut: a-faire
+statut: fait
 cree: 2026-11-12
 par: agent
-fait:
+fait: 2026-11-16
 ---
 
 L'ancienne feuille de route (v0.4) note : « Fusion 360 et PrusaSlicer à faire par l'utilisateur ». L'import dans FreeCAD est validé (docs/validation/step-freecad.md, 06/11/2026) ; STATUS.md liste aussi « STEP dans Fusion 360, PrusaSlicer, SolidWorks » parmi ce qui n'est pas vérifié.

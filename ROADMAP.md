@@ -27,10 +27,6 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 5. **[R-014 v1.0 — Tests de bout en bout de l'interface](roadmap/items/R-014-v1-0-tests-de-bout-en-bout-de-l-interface.md)** · Idée · jalon v1.0
    Tests de bout en bout de l'interface, issus du découpage de R-008.
 
-## Actions à faire
-
-- [ ] [A-002](roadmap/actions/A-002-importer-un-step-de-fabvents-dans-fusion-360-et.md) Importer un STEP de FabVents dans Fusion 360 et PrusaSlicer (tester, R-004)
-
 ## Livré
 
 ### v0.1 : Tranche verticale
