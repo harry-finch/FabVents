@@ -12,7 +12,7 @@
 
 La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md) (chaque fonction y a son identifiant et son jalon).
 
-**Avancement : 7 livrés sur 12** (58 %)
+**Avancement : 7 livrés sur 11** (64 %)
 
 ## Restant à faire
 
@@ -20,11 +20,9 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
    Release GitHub v1.0.0 en brouillon : application de bureau pour macOS (Apple Silicon), Windows et Linux, construite par un workflow sur tag, installeurs non signés.
 2. **[R-009 v1.0 — Pièces d'exemple validées à l'atelier](roadmap/items/R-009-v1-0-pieces-d-exemple-validees-a-l-atelier.md)** · Idée · jalon v1.0
    Pièces d'exemple fabriquées et validées : laser (contreplaqué 3 mm, acrylique), CNC (alu, MDF), impression 3D.
-3. **[R-012 Figure de FabVents dans l'application](roadmap/items/R-012-figure-de-fabvents-dans-l-application.md)** · Idée
-   Poser la figure de la plaque perforée (état vide de l'espace de travail, premier lancement, À propos), selon la skill fab-illustration-system. À spécifier.
-4. **[R-013 v1.0 — Documentation utilisateur FR / EN](roadmap/items/R-013-v1-0-documentation-utilisateur-fr-en.md)** · Idée · jalon v1.0
+3. **[R-013 v1.0 — Documentation utilisateur FR / EN](roadmap/items/R-013-v1-0-documentation-utilisateur-fr-en.md)** · Idée · jalon v1.0
    Documentation utilisateur en français et en anglais, issue du découpage de R-008.
-5. **[R-014 v1.0 — Tests de bout en bout de l'interface](roadmap/items/R-014-v1-0-tests-de-bout-en-bout-de-l-interface.md)** · Idée · jalon v1.0
+4. **[R-014 v1.0 — Tests de bout en bout de l'interface](roadmap/items/R-014-v1-0-tests-de-bout-en-bout-de-l-interface.md)** · Idée · jalon v1.0
    Tests de bout en bout de l'interface, issus du découpage de R-008.
 
 ## Livré
@@ -70,3 +68,5 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
   Projeter un motif sur une face 3D courbe d'un STEP importé. Hors périmètre de la v1.0, à réévaluer après.
 - [R-011 Comptes, nuage, place de marché](roadmap/items/R-011-comptes-nuage-place-de-marche.md)
   Comptes utilisateur, nuage et place de marché. Hors périmètre de la v1.0, à réévaluer après.
+- [R-012 Figure de FabVents dans l'application](roadmap/items/R-012-figure-de-fabvents-dans-l-application.md)
+  Poser la figure de la plaque perforée (état vide de l'espace de travail, premier lancement, À propos), selon la skill fab-illustration-system. À spécifier.
