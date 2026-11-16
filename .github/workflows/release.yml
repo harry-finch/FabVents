@@ -1,0 +1,74 @@
+name: Release
+
+# Un tag v* construit l'application de bureau sur trois systèmes et prépare une
+# release GitHub en brouillon (à relire et à lever à la main).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: cargo install wasm-pack --locked
+      - run: cargo test --workspace --exclude fabvents-desktop
+      - run: cargo clippy --workspace --exclude fabvents-desktop --all-targets
+      - run: npm ci && npm run wasm && npm run check
+        working-directory: ui
+
+  build:
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            args: --bundles dmg
+          - os: windows-latest
+            args: --bundles nsis,msi
+          - os: ubuntu-22.04
+            args: --bundles appimage,deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Dépendances Linux
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: cargo install wasm-pack --locked
+      - run: cargo install tauri-cli --version 2.11.5 --locked
+      - run: npm ci
+        working-directory: ui
+      - name: Construire l'application
+        run: cargo tauri build ${{ matrix.args }}
+        working-directory: crates/fabvents-desktop
+      - name: Joindre les installeurs à la release en brouillon
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --draft --title "FabVents ${GITHUB_REF_NAME#v}" --notes-file RELEASE-NOTES.md
+          find target/release/bundle -type f \( -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.AppImage' -o -name '*.deb' \) -print0 | xargs -0 -I{} gh release upload "$GITHUB_REF_NAME" "{}" --clobber

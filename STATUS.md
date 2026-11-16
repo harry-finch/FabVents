@@ -1,6 +1,6 @@
 # État du projet
 
-**Jalon** : **v0.7 — bureau et automatisation**, livrée pour essai (07/11/2026). v0.1 à v0.6 validées par l'utilisateur. Prochain jalon : v1.0 (publication), voir [ROADMAP.md](ROADMAP.md).
+**Jalon** : **v1.0 — publication** en préparation (R-008) : version 1.0.0, workflow de release sur tag (`.github/workflows/release.yml`), notes dans `RELEASE-NOTES.md`. Le `.dmg` macOS 1.0.0 est construit en local ; les builds Windows et Linux ne sont pas lancés. La v0.7 est livrée pour essai (07/11/2026). v0.1 à v0.6 validées par l'utilisateur. Prochain jalon : v1.0 (publication), voir [ROADMAP.md](ROADMAP.md).
 
 | Élément | État |
 | --- | --- |

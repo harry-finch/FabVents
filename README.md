@@ -4,7 +4,7 @@ Générateur de **motifs de perforation paramétriques** pour makers et fablabs 
 
 Inspiré des fonctions de SolidVents, sans compte ni abonnement, dans le même écosystème que [FabSpeed](../FabSpeed) (même langage visuel, mêmes conventions).
 
-> État : **v0.7** (bureau et automatisation) livrée pour essai. Voir [STATUS.md](STATUS.md) et [ROADMAP.md](ROADMAP.md).
+> État : **v1.0** en préparation (release GitHub en brouillon ; v0.7 livrée pour essai). Voir [STATUS.md](STATUS.md) et [ROADMAP.md](ROADMAP.md).
 
 ## Lancer
 
@@ -27,6 +27,8 @@ cd ui && npm run build && npm run preview
 ```
 
 ### Application de bureau
+
+Installeurs macOS (Apple Silicon), Windows et Linux, non signés, dans les [releases GitHub](https://github.com/harry-finch/FabVents/releases) : un tag `v*` lance `.github/workflows/release.yml`, qui prépare une release en brouillon à partir de `RELEASE-NOTES.md`. Pour construire soi-même :
 
 Même interface dans une fenêtre native (Tauri), avec les fenêtres d'ouverture et d'enregistrement du système, l'enregistrement sur place (`⌘S`) et les fichiers récents. Construire l'application (`.app` et `.dmg` sur macOS, dans `target/release/bundle/`) :
 

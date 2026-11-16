@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "fabvents-cli"
-version = "0.7.0-dev"
+version = "1.0.0"
 dependencies = [
  "fabvents-core",
  "serde_json",
@@ -848,7 +848,7 @@ dependencies = [
 
 [[package]]
 name = "fabvents-core"
-version = "0.7.0-dev"
+version = "1.0.0"
 dependencies = [
  "i_overlay",
  "rhai",
@@ -860,7 +860,7 @@ dependencies = [
 
 [[package]]
 name = "fabvents-desktop"
-version = "0.7.0-dev"
+version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -871,7 +871,7 @@ dependencies = [
 
 [[package]]
 name = "fabvents-wasm"
-version = "0.7.0-dev"
+version = "1.0.0"
 dependencies = [
  "fabvents-core",
  "serde_json",

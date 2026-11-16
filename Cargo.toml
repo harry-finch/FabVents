@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/fabvents-core", "crates/fabvents-wasm", "crates/fabvents-cli", "crates/fabvents-desktop"]
 
 [workspace.package]
-version = "0.7.0-dev"
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.88"
 authors = ["Stéphane Muller"]
