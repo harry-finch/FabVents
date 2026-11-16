@@ -12,16 +12,20 @@
 
 La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md) (chaque fonction y a son identifiant et son jalon).
 
-**Avancement : 7 livrés sur 10** (70 %)
+**Avancement : 7 livrés sur 12** (58 %)
 
 ## Restant à faire
 
-1. **[R-008 v1.0 — Installeurs signés, documentation et tests de bout en bout](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · Idée · jalon v1.0
-   Installeurs signés, documentation utilisateur en français et en anglais, tests de bout en bout de l'interface.
+1. **[R-008 v1.0 — Publication : builds et release GitHub](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · Spécifiée · jalon v1.0
+   Release GitHub v1.0.0 en brouillon : application de bureau pour macOS (Apple Silicon), Windows et Linux, construite par un workflow sur tag, installeurs non signés.
 2. **[R-009 v1.0 — Pièces d'exemple validées à l'atelier](roadmap/items/R-009-v1-0-pieces-d-exemple-validees-a-l-atelier.md)** · Idée · jalon v1.0
    Pièces d'exemple fabriquées et validées : laser (contreplaqué 3 mm, acrylique), CNC (alu, MDF), impression 3D.
 3. **[R-012 Figure de FabVents dans l'application](roadmap/items/R-012-figure-de-fabvents-dans-l-application.md)** · Idée
    Poser la figure de la plaque perforée (état vide de l'espace de travail, premier lancement, À propos), selon la skill fab-illustration-system. À spécifier.
+4. **[R-013 v1.0 — Documentation utilisateur FR / EN](roadmap/items/R-013-v1-0-documentation-utilisateur-fr-en.md)** · Idée · jalon v1.0
+   Documentation utilisateur en français et en anglais, issue du découpage de R-008.
+5. **[R-014 v1.0 — Tests de bout en bout de l'interface](roadmap/items/R-014-v1-0-tests-de-bout-en-bout-de-l-interface.md)** · Idée · jalon v1.0
+   Tests de bout en bout de l'interface, issus du découpage de R-008.
 
 ## Actions à faire
 
