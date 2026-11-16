@@ -3,10 +3,10 @@ id: A-001
 type: tester
 titre: "Tester la v0.7 : application de bureau et serveur MCP"
 element: R-007
-statut: a-faire
+statut: fait
 cree: 2026-11-12
 par: agent
-fait:
+fait: 2026-11-16
 ---
 
 La v0.7 (bureau et automatisation) est livrée pour essai depuis le 07/11/2026. STATUS.md demande de la tester, « dont l'application de bureau et le serveur MCP dans Claude Code », avant de préparer la v1.0.

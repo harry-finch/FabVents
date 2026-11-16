@@ -16,7 +16,7 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 
 ## Restant à faire
 
-1. **[R-008 v1.0 — Publication : builds et release GitHub](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · Spécifiée · jalon v1.0
+1. **[R-008 v1.0 — Publication : builds et release GitHub](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · En cours · jalon v1.0
    Release GitHub v1.0.0 en brouillon : application de bureau pour macOS (Apple Silicon), Windows et Linux, construite par un workflow sur tag, installeurs non signés.
 2. **[R-009 v1.0 — Pièces d'exemple validées à l'atelier](roadmap/items/R-009-v1-0-pieces-d-exemple-validees-a-l-atelier.md)** · Idée · jalon v1.0
    Pièces d'exemple fabriquées et validées : laser (contreplaqué 3 mm, acrylique), CNC (alu, MDF), impression 3D.
@@ -29,7 +29,6 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 
 ## Actions à faire
 
-- [ ] [A-001](roadmap/actions/A-001-tester-la-v0-7-application-de-bureau-et-serveur.md) Tester la v0.7 : application de bureau et serveur MCP (tester, R-007)
 - [ ] [A-002](roadmap/actions/A-002-importer-un-step-de-fabvents-dans-fusion-360-et.md) Importer un STEP de FabVents dans Fusion 360 et PrusaSlicer (tester, R-004)
 
 ## Livré
