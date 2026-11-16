@@ -2,11 +2,11 @@
 id: R-007
 titre: "v0.7 — Bureau et automatisation (jalon 7)"
 resume: "Application de bureau Tauri, bibliothèque de préréglages, CLI et serveur MCP, solveur de taux d'ouverture, dispositions scriptées."
-statut: a-tester
+statut: livree
 jalon: v0.7
 cree: 2026-11-07
-maj: 2026-11-12
-livree:
+maj: 2026-11-16
+livree: 2026-11-16
 ---
 
 Livrée pour essai le 07/11/2026, en attente de validation par l'utilisateur. Texte d'origine de l'ancienne feuille de route repris dans « Inclus » et « Critères d'acceptation ».

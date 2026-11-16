@@ -12,17 +12,15 @@
 
 La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md) (chaque fonction y a son identifiant et son jalon).
 
-**Avancement : 6 livrés sur 10** (60 %)
+**Avancement : 7 livrés sur 10** (70 %)
 
 ## Restant à faire
 
-1. **[R-007 v0.7 — Bureau et automatisation (jalon 7)](roadmap/items/R-007-v0-7-bureau-et-automatisation-jalon-7.md)** · À tester · jalon v0.7
-   Application de bureau Tauri, bibliothèque de préréglages, CLI et serveur MCP, solveur de taux d'ouverture, dispositions scriptées.
-2. **[R-008 v1.0 — Installeurs signés, documentation et tests de bout en bout](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · Idée · jalon v1.0
+1. **[R-008 v1.0 — Installeurs signés, documentation et tests de bout en bout](roadmap/items/R-008-v1-0-installeurs-signes-documentation-et-tests.md)** · Idée · jalon v1.0
    Installeurs signés, documentation utilisateur en français et en anglais, tests de bout en bout de l'interface.
-3. **[R-009 v1.0 — Pièces d'exemple validées à l'atelier](roadmap/items/R-009-v1-0-pieces-d-exemple-validees-a-l-atelier.md)** · Idée · jalon v1.0
+2. **[R-009 v1.0 — Pièces d'exemple validées à l'atelier](roadmap/items/R-009-v1-0-pieces-d-exemple-validees-a-l-atelier.md)** · Idée · jalon v1.0
    Pièces d'exemple fabriquées et validées : laser (contreplaqué 3 mm, acrylique), CNC (alu, MDF), impression 3D.
-4. **[R-012 Figure de FabVents dans l'application](roadmap/items/R-012-figure-de-fabvents-dans-l-application.md)** · Idée
+3. **[R-012 Figure de FabVents dans l'application](roadmap/items/R-012-figure-de-fabvents-dans-l-application.md)** · Idée
    Poser la figure de la plaque perforée (état vide de l'espace de travail, premier lancement, À propos), selon la skill fab-illustration-system. À spécifier.
 
 ## Actions à faire
@@ -61,6 +59,11 @@ La source fonctionnelle est l'inventaire de [docs/FEATURES.md](docs/FEATURES.md)
 
 - [R-006 v0.6 — Atelier de formes et morphing (jalon 6)](roadmap/items/R-006-v0-6-atelier-de-formes-et-morphing-jalon-6.md) · livrée le 2026-11-07
   Éditeur de formes (plume, Bézier, primitives cotées, symétries, calques) et canal Forme avec morphing.
+
+### v0.7 : Bureau et automatisation
+
+- [R-007 v0.7 — Bureau et automatisation (jalon 7)](roadmap/items/R-007-v0-7-bureau-et-automatisation-jalon-7.md) · livrée le 2026-11-16
+  Application de bureau Tauri, bibliothèque de préréglages, CLI et serveur MCP, solveur de taux d'ouverture, dispositions scriptées.
 
 ## Écarté
 
